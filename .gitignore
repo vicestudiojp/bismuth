@@ -1,0 +1,8 @@
+node_modules/
+dist/
+*.local
+.DS_Store
+
+
+# エージェント向けの作業メモ（オーナーの環境・運用に依存するため公開しない）
+CLAUDE.md

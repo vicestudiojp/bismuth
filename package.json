@@ -1,0 +1,15 @@
+{
+  "name": "bismuth",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "server",
+    "web"
+  ],
+  "scripts": {
+    "app": "npm run build -w web && npm run start -w server",
+    "dev:server": "npm run dev -w server",
+    "dev:web": "npm run dev -w web",
+    "cli": "tsx server/src/cli.ts"
+  }
+}

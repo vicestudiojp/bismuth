@@ -1,0 +1,1195 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* 画面テーマ（bismuth-174）。色はすべてここの変数で指定する。
+   <html data-theme> は dark / light（「OS に合わせる」は theme.ts が OS 設定から dark / light に解決して入れる） */
+:root {
+  color-scheme: dark;
+  --bg: #1b1d22; /* ページ背景 */
+  --bg-column: #24262d; /* カラム */
+  --bg-dragover: #272b34; /* ドラッグ中のカラム */
+  --bg-card: #2d3039; /* カード・並べ替えセレクタ */
+  --bg-modal: #23252c; /* モーダル */
+  --bg-meta: #1e2026; /* モーダルのメタ情報 */
+  --bg-input: #1a1c21; /* 入力欄・コード */
+  --bg-th: #2a2d35; /* 表見出し・コメント見出し */
+  --bg-panel: #24262c; /* 作業記録フォーム */
+  --bg-field: #262932; /* フィルタの選択欄 */
+  --bg-popover: #2b2e37; /* プルダウンパネル */
+  --bg-subtle: #33363f; /* ボタン・チップ・区切り線 */
+  --bg-btn-hover: #3c404b; /* ボタンのホバー */
+  --border-card: #383b46; /* カードの枠 */
+  --border-card-hover: #565a68; /* カード枠のホバー */
+  --border: #3a3d48; /* 標準の枠線 */
+  --border-btn: #454956; /* ボタン・パネルの枠 */
+  --border-field: #3a3e49; /* フィルタ選択欄の枠 */
+  --border-heading: #34363f; /* 本文 h2 の下線 */
+  --border-row: #2f323b; /* 同期一覧の行区切り */
+  --focus: #5a7fb0; /* フォーカス枠・ドロップ先 */
+  --drop-line: #4c8dff; /* 手動ソートの差し込み線 */
+  --text: #e8e8ea; /* 本文 */
+  --text-2: #d8d8de; /* ボタン・選択肢 */
+  --text-option: #d0d0d6; /* 並べ替えの選択肢 */
+  --text-heading: #cfd0d6; /* 本文 h2 */
+  --text-meta: #c8c8d0; /* メタ情報の値 */
+  --text-subheading: #b9bac2; /* 本文 h3 */
+  --text-3: #b8b8c0; /* カラム見出し・表見出し */
+  --text-muted: #9a9aa2; /* 補助文字 */
+  --text-label: #9a9da8; /* フォームのラベル */
+  --text-id: #8a8d99; /* タスク番号 */
+  --text-faint: #7c7e88; /* ヒント・件数 */
+  --text-dim: #6a6d77; /* .muted */
+  --text-empty: #5c5e66; /* 空カラム */
+  --link: #a9c7f5; /* リンク */
+  --ok: #7bd88f; /* ヘルス OK */
+  --ng: #e06c75; /* ヘルス NG */
+  --error: #e8a1a8; /* 期限切れ・エラー */
+  --tag-text: #9fb8d0; /* タグ */
+  --tag-bg: #26303c;
+  --tag-border: #34424f;
+  --danger-bg: #5a2b30; /* P1・削除ボタン・削除確認の枠 */
+  --p1-border: #8c4048;
+  --p1-text: #ffc9ce;
+  --p2-bg: #4d3a1e;
+  --p2-border: #7a5c2c;
+  --p2-text: #f3d49a;
+  --p3-bg: #23384d;
+  --p3-border: #3a5c7d;
+  --p3-text: #b6d5f2;
+  --p4-border: #4a4e59;
+  --p4-text: #a8abb5;
+  --done-bg: #23402c; /* ステータス done */
+  --success-text: #8fd8a0; /* done・保存通知 */
+  --inprogress-bg: #1f3a52; /* ステータス inprogress */
+  --inprogress-text: #8ec2ee;
+  --dotoday-bg: #4a3a1e; /* ステータス dotoday */
+  --warn-text: #eecf8e; /* dotoday・警告 */
+  --warn-bg: #3a2f1e; /* フォームの警告 */
+  --warnings-bg: #40331c; /* 取込警告の帯 */
+  --notice-bg: #22301f; /* 保存通知 */
+  --primary-bg: #2b4a72; /* 主ボタン・有効なフィルタ */
+  --primary-border: #3a6295;
+  --primary-text: #dce9f8;
+  --primary-hover: #33587f;
+  --danger-border: #7a3a41; /* 削除ボタン */
+  --danger-text: #f2d6d9;
+  --danger-hover: #6a333a;
+  --confirm-bg: #3a2226; /* 削除確認 */
+  --confirm-text: #eec6ca;
+  --backdrop: rgba(0, 0, 0, 0.55); /* モーダルの背後 */
+  --shadow: rgba(0, 0, 0, 0.4); /* プルダウンの影 */
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f4f5f7;
+  --bg-column: #e8eaee;
+  --bg-dragover: #dde6f3;
+  --bg-card: #ffffff;
+  --bg-modal: #ffffff;
+  --bg-meta: #f2f3f6;
+  --bg-input: #f8f9fb;
+  --bg-th: #eef0f3;
+  --bg-panel: #f6f7f9;
+  --bg-field: #ffffff;
+  --bg-popover: #ffffff;
+  --bg-subtle: #e9ebef;
+  --bg-btn-hover: #dde0e6;
+  --border-card: #d6d9e0;
+  --border-card-hover: #a7acb8;
+  --border: #d6d9e0;
+  --border-btn: #c7cbd4;
+  --border-field: #cfd3da;
+  --border-heading: #e0e2e7;
+  --border-row: #e6e8ec;
+  --focus: #4a7bc0;
+  --drop-line: #2f6fe0;
+  --text: #1f2328;
+  --text-2: #2c3038;
+  --text-option: #2c3038;
+  --text-heading: #262a31;
+  --text-meta: #3a3f47;
+  --text-subheading: #474c55;
+  --text-3: #4a4f58;
+  --text-muted: #6b707a;
+  --text-label: #5f6470;
+  --text-id: #7a7f8a;
+  --text-faint: #858a94;
+  --text-dim: #9095a0;
+  --text-empty: #a0a4ad;
+  --link: #2563c9;
+  --ok: #2f9e4a;
+  --ng: #d0414d;
+  --error: #c4323f;
+  --tag-text: #3d6286;
+  --tag-bg: #e6eef7;
+  --tag-border: #c5d5e6;
+  --danger-bg: #fbe3e5;
+  --p1-border: #eeb0b7;
+  --p1-text: #b4232f;
+  --p2-bg: #fdf0da;
+  --p2-border: #ebc684;
+  --p2-text: #8a5a00;
+  --p3-bg: #e3eefa;
+  --p3-border: #a9c8e8;
+  --p3-text: #1f5a94;
+  --p4-border: #cfd3da;
+  --p4-text: #5f6470;
+  --done-bg: #dff3e4;
+  --success-text: #237a3a;
+  --inprogress-bg: #e0edf9;
+  --inprogress-text: #1f5f9e;
+  --dotoday-bg: #fbf0d9;
+  --warn-text: #8a5a00;
+  --warn-bg: #fdf3df;
+  --warnings-bg: #fbeecd;
+  --notice-bg: #e3f4e6;
+  --primary-bg: #2f6fe0;
+  --primary-border: #275fc4;
+  --primary-text: #ffffff;
+  --primary-hover: #275fc4;
+  --danger-border: #eaa9b0;
+  --danger-text: #a3222d;
+  --danger-hover: #f6d0d4;
+  --confirm-bg: #fff4f5;
+  --confirm-text: #8a1f29;
+  --backdrop: rgba(20, 24, 32, 0.35);
+  --shadow: rgba(20, 24, 32, 0.15);
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic UI", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ビスマス結晶の虹色をヘッダーの下線に */
+.header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 20px;
+  border-bottom: 2px solid transparent;
+  border-image: linear-gradient(90deg, #f8b5c1, #ffd9a0, #b8e6c9, #a9c7f5, #d5b3f0) 1;
+}
+
+.header h1 {
+  font-size: 20px;
+  letter-spacing: 0.04em;
+}
+
+.health {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.health-ok::before {
+  content: "●";
+  color: var(--ok);
+  margin-right: 4px;
+}
+
+.health-ng::before {
+  content: "●";
+  color: var(--ng);
+  margin-right: 4px;
+}
+
+.board {
+  flex: 1;
+  display: flex;
+  gap: 12px;
+  padding: 16px 20px;
+  overflow-x: auto;
+}
+
+.column {
+  flex: 1;
+  min-width: 180px;
+  background: var(--bg-column);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.column h2 {
+  display: flex;
+  align-items: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-3);
+  margin-bottom: 8px;
+}
+
+/* カラムごとの並べ替えセレクタ（bismuth-44）。ヘッダ右端に小さく置く */
+.sort-controls {
+  margin-left: auto;
+  display: inline-flex;
+  gap: 2px;
+}
+
+.sort-select {
+  max-width: 96px;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-faint);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 1px 2px;
+  cursor: pointer;
+}
+
+.sort-select:hover,
+.sort-select:focus {
+  color: var(--text-3);
+  border-color: var(--border-card);
+  background: var(--bg-card);
+}
+
+.sort-select option {
+  background: var(--bg-card);
+  color: var(--text-option);
+}
+
+/* 手動ソート時にカードの間へ差し込む位置を示すライン */
+.drop-line {
+  height: 0;
+  border-top: 2px solid var(--drop-line);
+  border-radius: 1px;
+  margin: -5px 0 3px;
+  pointer-events: none;
+}
+
+.empty {
+  font-size: 12px;
+  color: var(--text-empty);
+}
+
+.count {
+  margin-left: 6px;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-faint);
+}
+
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: 6px;
+  padding: 8px 10px;
+  margin-bottom: 8px;
+}
+
+.card-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.card-id {
+  font-size: 11px;
+  color: var(--text-id);
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+}
+
+/* 優先度バッジ。優先度なしのタスクには描画しない（Todoist 準拠） */
+.prio {
+  margin-left: auto;
+  font-size: 10.5px;
+  font-weight: 700;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  letter-spacing: 0.02em;
+  padding: 1px 6px;
+  border-radius: 4px;
+  border: 1px solid transparent;
+}
+
+/* P1 が最優先で P4 が最低（Todoist 準拠） */
+.prio-P1 {
+  background: var(--danger-bg);
+  border-color: var(--p1-border);
+  color: var(--p1-text);
+}
+
+.prio-P2 {
+  background: var(--p2-bg);
+  border-color: var(--p2-border);
+  color: var(--p2-text);
+}
+
+.prio-P3 {
+  background: var(--p3-bg);
+  border-color: var(--p3-border);
+  color: var(--p3-text);
+}
+
+.prio-P4 {
+  background: var(--bg-subtle);
+  border-color: var(--p4-border);
+  color: var(--p4-text);
+}
+
+/* 詳細モーダルの見出しでは編集ボタンが右端に寄るので、バッジは左詰めのまま */
+.modal-head .prio {
+  margin-left: 0;
+}
+
+.card-title {
+  font-size: 13px;
+  line-height: 1.4;
+  margin-top: 2px;
+}
+
+.card-meta {
+  margin-top: 4px;
+}
+
+.due {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.due-over {
+  color: var(--error);
+}
+
+/* タイトル下の表示項目（左から 優先度 → 期限 → タグ → 見積） */
+.card-fields {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+/* card-fields 内では優先度バッジを左詰めに（card-head の margin-left:auto を打ち消す） */
+.card-fields .prio {
+  margin-left: 0;
+}
+
+.card-tags {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.card-tag {
+  font-size: 10.5px;
+  color: var(--tag-text);
+  background: var(--tag-bg);
+  border: 1px solid var(--tag-border);
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+
+.card-est {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+}
+
+.card-clickable {
+  cursor: grab;
+}
+
+.card-clickable:hover {
+  border-color: var(--border-card-hover);
+}
+
+.column-dragover {
+  outline: 1px dashed var(--focus);
+  background: var(--bg-dragover);
+}
+
+/* ---- タスク詳細モーダル ---- */
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: var(--backdrop);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 48px 16px;
+  z-index: 10;
+}
+
+.modal {
+  position: relative;
+  background: var(--bg-modal);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  width: min(720px, 100%);
+  max-height: calc(100vh - 96px);
+  overflow-y: auto;
+  padding: 20px 24px;
+}
+
+.modal-close {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 20px;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.modal-close:hover {
+  color: var(--text);
+}
+
+.modal-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.status-chip {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: var(--bg-subtle);
+  color: var(--text-3);
+}
+
+.status-done {
+  background: var(--done-bg);
+  color: var(--success-text);
+}
+
+.status-inprogress {
+  background: var(--inprogress-bg);
+  color: var(--inprogress-text);
+}
+
+.status-dotoday {
+  background: var(--dotoday-bg);
+  color: var(--warn-text);
+}
+
+.modal-title {
+  font-size: 18px;
+  margin: 8px 0 12px;
+  line-height: 1.4;
+}
+
+.modal-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 20px;
+  padding: 10px 12px;
+  background: var(--bg-meta);
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+.modal-meta div {
+  display: flex;
+  gap: 6px;
+}
+
+.modal-meta .meta-file {
+  flex-basis: 100%;
+}
+
+.modal-meta dt {
+  color: var(--text-faint);
+}
+
+.modal-meta dd {
+  color: var(--text-meta);
+}
+
+.mono {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 11px;
+  word-break: break-all;
+}
+
+.modal-error,
+.modal-loading {
+  color: var(--text-muted);
+  padding: 24px 0;
+}
+
+/* ---- 本文の Markdown ---- */
+
+.markdown {
+  margin-top: 16px;
+  font-size: 13.5px;
+  line-height: 1.75;
+}
+
+.markdown h2 {
+  font-size: 14px;
+  margin: 18px 0 6px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--border-heading);
+  color: var(--text-heading);
+}
+
+.markdown h3 {
+  font-size: 13px;
+  margin: 12px 0 4px;
+  color: var(--text-subheading);
+}
+
+.markdown p {
+  margin: 6px 0;
+}
+
+.markdown ul,
+.markdown ol {
+  padding-left: 22px;
+  margin: 6px 0;
+}
+
+.markdown li {
+  margin: 2px 0;
+}
+
+.markdown input[type="checkbox"] {
+  margin-right: 6px;
+}
+
+.markdown a {
+  color: var(--link);
+  text-decoration: none;
+}
+
+.markdown a:hover {
+  text-decoration: underline;
+}
+
+.markdown code {
+  background: var(--bg-input);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 12px;
+}
+
+.markdown table {
+  border-collapse: collapse;
+  margin: 8px 0;
+  font-size: 12.5px;
+}
+
+.markdown th,
+.markdown td {
+  border: 1px solid var(--border);
+  padding: 4px 10px;
+}
+
+.markdown th {
+  background: var(--bg-th);
+  color: var(--text-3);
+  font-weight: 600;
+}
+
+/* ---- ボタン・フォーム ---- */
+
+.btn {
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-btn);
+  color: var(--text-2);
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.btn:hover {
+  background: var(--bg-btn-hover);
+}
+
+.btn-primary {
+  background: var(--primary-bg);
+  border-color: var(--primary-border);
+  color: var(--primary-text);
+}
+
+.btn-primary:hover {
+  background: var(--primary-hover);
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* ヘッダーのボタン群を右に寄せる（Todoist 同期ボタンの有無に関わらず効くよう独立した要素にする） */
+.header-spacer {
+  margin-left: auto;
+}
+
+.btn-icon {
+  padding: 6px 10px;
+  font-size: 15px;
+  line-height: 1;
+}
+
+/* ヘッダーのボタンは高さを揃え、中身（文字・アイコン）を縦横中央に置く */
+.header .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 32px;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+.header .btn-icon {
+  min-width: 36px;
+}
+
+/* フィルタ有効時のアイコンボタン */
+.btn-icon-active {
+  background: var(--primary-bg);
+  border-color: var(--primary-border);
+  color: var(--primary-text);
+}
+
+.task-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.task-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--text-label);
+  flex: 1;
+}
+
+.task-form input,
+.task-form select,
+.task-form textarea {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  padding: 7px 10px;
+  font-size: 13px;
+  font-family: inherit;
+}
+
+.task-form input:focus,
+.task-form select:focus,
+.task-form textarea:focus {
+  outline: none;
+  border-color: var(--focus);
+}
+
+.form-row {
+  display: flex;
+  gap: 12px;
+}
+
+.form-error {
+  color: var(--error);
+  font-size: 12px;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.btn-edit {
+  padding: 3px 12px;
+  font-size: 12px;
+}
+
+/* ヘッダー右端のボタン群。右上の × の真下にボタンが来ないよう右に余白を取る（bismuth-47） */
+.modal-actions {
+  margin-left: auto;
+  margin-right: 28px;
+  display: flex;
+  gap: 10px;
+}
+
+.task-form-edit {
+  margin-top: 12px;
+}
+
+.task-form-edit textarea {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.form-hint {
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+.settings-info {
+  border-top: 1px solid var(--bg-subtle);
+  padding-top: 10px;
+  margin-top: 2px;
+}
+
+.settings-info-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 6px;
+}
+
+.settings-info-key {
+  font-size: 12px;
+  color: var(--text-label);
+}
+
+.settings-info-val {
+  font-size: 12px;
+  word-break: break-all;
+}
+
+.proj-confirm {
+  font-size: 11px;
+  color: var(--warn-text);
+  margin-right: 6px;
+}
+
+.settings-section {
+  border-top: 1px solid var(--bg-subtle);
+  padding-top: 10px;
+  margin-top: 2px;
+}
+
+.settings-section-title {
+  font-size: 12px;
+  color: var(--text-label);
+  margin-bottom: 8px;
+}
+
+.settings-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin-bottom: 6px;
+}
+
+.settings-checks .check {
+  flex: 0 0 auto;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-2);
+  cursor: pointer;
+}
+
+.settings-checks .check input {
+  width: auto;
+  cursor: pointer;
+}
+
+/* フィルタダイアログ */
+.filter-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.filter-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.filter-label {
+  width: 88px;
+  flex: 0 0 auto;
+  font-size: 12px;
+  color: var(--text-label);
+}
+
+.filter-select {
+  flex: 1;
+  background: var(--bg-field);
+  border: 1px solid var(--border-field);
+  color: var(--text-2);
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-size: 13px;
+}
+
+/* プルダウン複数選択 */
+.ms {
+  position: relative;
+  flex: 1;
+}
+
+.ms-button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-field);
+  border: 1px solid var(--border-field);
+  color: var(--text-2);
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-size: 13px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.ms-summary {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ms-summary-empty {
+  color: var(--text-faint);
+}
+
+.ms-caret {
+  color: var(--text-id);
+  font-size: 11px;
+}
+
+.ms-panel {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 10;
+  background: var(--bg-popover);
+  border: 1px solid var(--border-btn);
+  border-radius: 6px;
+  padding: 6px;
+  max-height: 220px;
+  overflow-y: auto;
+  box-shadow: 0 6px 18px var(--shadow);
+}
+
+.ms-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  font-size: 13px;
+  color: var(--text-2);
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.ms-option:hover {
+  background: var(--bg-subtle);
+}
+
+.ms-empty {
+  padding: 6px;
+  font-size: 12px;
+  color: var(--text-faint);
+}
+
+.filter-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 14px;
+}
+
+.filter-count {
+  font-size: 12px;
+  color: var(--text-label);
+}
+
+.form-warning {
+  font-size: 12px;
+  color: var(--warn-text);
+  background: var(--warn-bg);
+  border-radius: 6px;
+  padding: 6px 10px;
+}
+
+.warnings {
+  background: var(--warnings-bg);
+  color: var(--warn-text);
+  font-size: 12px;
+  padding: 8px 20px;
+}
+
+.warnings p {
+  margin: 2px 0;
+}
+
+.modal-notice {
+  font-size: 12px;
+  color: var(--success-text);
+  background: var(--notice-bg);
+  border-radius: 6px;
+  padding: 6px 10px;
+  margin-bottom: 10px;
+}
+
+/* ---- 作業記録・コメント（本文から切り出した専用セクション） ---- */
+
+.work-sessions,
+.comments {
+  border-top: 1px solid var(--border);
+  margin-top: 18px;
+  padding-top: 14px;
+}
+
+.section-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--text-label);
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+
+.section-empty {
+  font-size: 12px;
+  color: var(--text-faint);
+  margin-bottom: 10px;
+}
+
+.btn-small {
+  padding: 3px 12px;
+  font-size: 12px;
+  font-weight: 400;
+}
+
+/* セクション見出しの中の小ボタンは右端に寄せる（見出しは flex） */
+.section-head .btn-small {
+  margin-left: auto;
+}
+
+.btn-danger {
+  background: var(--danger-bg);
+  border-color: var(--danger-border);
+  color: var(--danger-text);
+}
+
+.btn-danger:hover {
+  background: var(--danger-hover);
+}
+
+.confirm-delete {
+  background: var(--confirm-bg);
+  border: 1px solid var(--danger-bg);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 12.5px;
+  color: var(--confirm-text);
+}
+
+.confirm-delete .form-buttons {
+  justify-content: flex-end;
+}
+
+.ws-total {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-faint);
+}
+
+.ws-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 12.5px;
+  margin-bottom: 10px;
+}
+
+.ws-table th,
+.ws-table td {
+  border: 1px solid var(--border);
+  padding: 4px 10px;
+  text-align: left;
+}
+
+.ws-table th {
+  background: var(--bg-th);
+  color: var(--text-3);
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.ws-form {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+/* ---- プロジェクト ---- */
+
+.proj-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 12.5px;
+  margin-bottom: 8px;
+}
+
+.proj-table th,
+.proj-table td {
+  border: 1px solid var(--border);
+  padding: 5px 10px;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.proj-table th {
+  background: var(--bg-th);
+  color: var(--text-3);
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.proj-table input {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  padding: 3px 6px;
+  font-size: 12.5px;
+  font-family: inherit;
+  width: 100%;
+}
+
+.proj-table input:focus {
+  outline: none;
+  border-color: var(--focus);
+}
+
+.proj-actions {
+  white-space: nowrap;
+  text-align: right;
+}
+
+/* プロジェクト id・期限・優先度は折り返さない（Todoist 同期の一覧で潰れるため） */
+.proj-table td.mono,
+.proj-table th:first-child {
+  white-space: nowrap;
+}
+
+.proj-actions .btn + .btn {
+  margin-left: 6px;
+}
+
+.muted {
+  color: var(--text-dim);
+}
+
+.sync-list {
+  list-style: none;
+  font-size: 12.5px;
+  margin-bottom: 10px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.sync-list li {
+  padding: 3px 0;
+  border-bottom: 1px solid var(--border-row);
+}
+
+.sync-list li:last-child {
+  border-bottom: none;
+}
+
+.form-buttons {
+  display: flex;
+  gap: 10px;
+}
+
+.comment {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 10px;
+  overflow: hidden;
+}
+
+.comment-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  background: var(--bg-th);
+  padding: 5px 12px;
+  font-size: 12px;
+}
+
+.comment-author {
+  color: var(--text-2);
+  font-weight: 600;
+}
+
+.comment-at {
+  color: var(--text-faint);
+  font-size: 11px;
+}
+
+.comment-body {
+  padding: 8px 12px;
+}
+
+.comment-body > :first-child {
+  margin-top: 0;
+}
+
+.comment-body > :last-child {
+  margin-bottom: 0;
+}
+
+.comment-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.comment-form textarea {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  padding: 8px 10px;
+  font-size: 13px;
+  font-family: inherit;
+  line-height: 1.6;
+  resize: vertical;
+}
+
+.comment-form textarea:focus {
+  outline: none;
+  border-color: var(--focus);
+}
+
+.comment-form .form-actions {
+  align-items: center;
+  justify-content: space-between;
+}
