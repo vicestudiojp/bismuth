@@ -134,6 +134,14 @@ function readLocal(): Record<string, unknown> {
   }
 }
 
+// vault の場所が明示されているか（環境変数 BISMUTH_VAULT か、ローカル設定の root）。
+// 起動コマンドが初回起動を見分け、既定の ~/bismuth を黙って作らずに場所を尋ねるために使う
+export function hasConfiguredRoot(): boolean {
+  if (process.env.BISMUTH_VAULT?.trim()) return true
+  const conf = readLocal()
+  return [conf.root, conf.vaultPath].some((v) => typeof v === 'string' && v.trim() !== '')
+}
+
 // ローカル設定から全体設定を解決する。root は 環境変数 BISMUTH_VAULT → root/vaultPath → 既定 の順。
 export function resolveSettings(): Settings {
   const conf = readLocal()

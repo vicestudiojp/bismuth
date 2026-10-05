@@ -1,15 +1,65 @@
 {
-  "name": "bismuth",
+  "name": "bismuth-tasks",
   "version": "0.1.0",
-  "private": true,
-  "workspaces": [
-    "server",
-    "web"
+  "description": "A local task manager that uses your Obsidian vault as its database. Each task is a Markdown note with frontmatter, managed from a kanban web UI and a CLI.",
+  "keywords": [
+    "obsidian",
+    "task-manager",
+    "kanban",
+    "markdown",
+    "local-first",
+    "cli"
   ],
+  "homepage": "https://github.com/vicestudiojp/bismuth#readme",
+  "bugs": {
+    "url": "https://github.com/vicestudiojp/bismuth/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vicestudiojp/bismuth.git"
+  },
+  "license": "GPL-3.0-only",
+  "author": "ViceStudio",
+  "type": "module",
+  "bin": {
+    "bismuth-tasks": "bin/bismuth-tasks.js"
+  },
+  "files": [
+    "bin",
+    "dist"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
-    "app": "npm run build -w web && npm run start -w server",
-    "dev:server": "npm run dev -w server",
-    "dev:web": "npm run dev -w web",
-    "cli": "tsx server/src/cli.ts"
+    "build": "npm run build:web && npm run build:server",
+    "build:web": "vite build web",
+    "build:server": "tsc -p server/tsconfig.build.json",
+    "typecheck": "tsc -p server && tsc -p web",
+    "app": "npm run build && node bin/bismuth-tasks.js",
+    "dev:server": "BISMUTH_LOG=1 tsx watch server/src/index.ts",
+    "dev:web": "vite web",
+    "cli": "tsx server/src/cli.ts",
+    "verify": "for f in server/scripts/verify-*.ts; do tsx \"$f\" || exit 1; done",
+    "prepublishOnly": "npm run typecheck && npm run build"
+  },
+  "dependencies": {
+    "@fastify/static": "^10.1.5",
+    "fast-glob": "^3.3.3",
+    "fastify": "^5.4.0",
+    "gray-matter": "^4.0.3"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "@vitejs/plugin-react": "^4.5.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
+    "tsx": "^4.20.0",
+    "typescript": "^5.8.0",
+    "vite": "^6.3.0"
   }
 }

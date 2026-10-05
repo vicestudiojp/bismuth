@@ -1,5 +1,7 @@
 node_modules/
 dist/
+# npm pack が作る配布物の tarball
+*.tgz
 *.local
 .DS_Store
 

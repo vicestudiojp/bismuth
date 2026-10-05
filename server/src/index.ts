@@ -1,5 +1,7 @@
 import Fastify from 'fastify'
 import fastifyStatic from '@fastify/static'
+import { execFile } from 'node:child_process'
+import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { addProject, deleteProject, listProjects, updateProject, type ProjectInput } from './projects.js'
@@ -26,6 +28,34 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 // ポートは Bi（ビスマス）の原子番号 83 から
 const PORT = Number(process.env.BISMUTH_PORT ?? 8383)
 
+// バージョンはパッケージの package.json から読む（開発時は server/src、配布時は dist/server から見て2つ上）
+const VERSION = (() => {
+  try {
+    return String(JSON.parse(fs.readFileSync(path.resolve(__dirname, '../../package.json'), 'utf-8')).version)
+  } catch {
+    return 'dev'
+  }
+})()
+
+// ビルド済みの画面（dist/web）。配布時は dist/server から ../web、開発時は server/src から ../../dist/web
+const WEB_ROOT =
+  [path.resolve(__dirname, '../web'), path.resolve(__dirname, '../../dist/web')].find((d) =>
+    fs.existsSync(path.join(d, 'index.html')),
+  ) ?? null
+
+// 起動後に既定のブラウザで開く（npx での起動時。BISMUTH_OPEN=1 のときだけ）
+function openBrowser(url: string): void {
+  const [cmd, args] =
+    process.platform === 'darwin'
+      ? ['open', [url]]
+      : process.platform === 'win32'
+        ? ['cmd', ['/c', 'start', '', url]]
+        : ['xdg-open', [url]]
+  execFile(cmd, args, () => {
+    // 開けなくても URL はコンソールに出しているので無視する
+  })
+}
+
 let vault: string
 try {
   const settings = resolveSettings()
@@ -36,12 +66,13 @@ try {
   process.exit(1)
 }
 
-const app = Fastify({ logger: true })
+// リクエストログは開発時だけ出す（npm run dev:server が BISMUTH_LOG=1 を付ける）。利用者の端末には要点だけを出す
+const app = Fastify({ logger: process.env.BISMUTH_LOG === '1' })
 
 app.get('/api/health', async () => ({
   status: 'ok',
   app: 'bismuth',
-  version: '0.1.0',
+  version: VERSION,
   features: { todoist: todoistEnabled() }, // web はこれを見て Todoist 関連の UI を出し分ける
 }))
 
@@ -196,15 +227,15 @@ app.post('/api/tasks/:id/work-sessions', async (req, reply) => {
   }
 })
 
-// web のビルド成果物を配信する（`npm run app` が先に web をビルドする前提）
-app.register(fastifyStatic, {
-  root: path.resolve(__dirname, '../../web/dist'),
-})
+// web のビルド成果物を配信する（`npm run app` は先に web をビルドする。開発時は Vite が配信するので無くてもよい）
+if (WEB_ROOT) app.register(fastifyStatic, { root: WEB_ROOT })
 
 app
   .listen({ port: PORT, host: '127.0.0.1' })
   .then(async () => {
-    console.log(`Bismuth: http://localhost:${PORT}`)
+    const url = `http://localhost:${PORT}`
+    console.log(`Bismuth ${VERSION}: ${url}`)
+    if (!WEB_ROOT) console.log('（画面のビルドが見つかりません。開発時は npm run dev:web を使ってください）')
     console.log(`vault: ${vault}`)
     // 採番カウンター（config.json の nextTaskId）。無ければ vault から作り直す＝いつでも捨てられる導出値
     const counter = await ensureTaskIdCounter(vault)
@@ -216,7 +247,16 @@ app
       `projects: ${projects.map((p) => p.id).join(', ') || '（なし）'}${added.length ? `（新規登録: ${added.join(', ')}）` : ''}`,
     )
   })
+  .then(() => {
+    if (process.env.BISMUTH_OPEN === '1' && WEB_ROOT) openBrowser(`http://localhost:${PORT}`)
+  })
   .catch((err) => {
-    app.log.error(err)
+    if ((err as NodeJS.ErrnoException).code === 'EADDRINUSE') {
+      console.error(
+        `ポート ${PORT} は使用中です。Bismuth がすでに起動していないか確認するか、--port で別のポートを指定してください`,
+      )
+    } else {
+      console.error(err)
+    }
     process.exit(1)
   })

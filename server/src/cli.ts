@@ -187,7 +187,7 @@ async function main(): Promise<void> {
         '  --json          JSON 出力',
         '  --project <ids> / --status <s> / --priority <P1,none> / --due <1week> / --tag <t>（カンマ区切り）',
         '  create --project <id> --title "..." [--status --priority --due --tags --estimate --body]   タスクを新規作成',
-        '  done <id...>    タスクを完了にする（例: done bismuth-33 34。複数まとめて可）',
+        '  done <id...>    タスクを完了にする（例: done alpha-12 13。複数まとめて可）',
         '  comment <id> "本文" [--author 秘書]   コメントを追記（既定の書き手=秘書。見出し #〜### は本文に使えない）',
         '  tag <id> [--add a,b] [--remove c]   タグを付け外しする',
         ...(todoistEnabled() ? ['  sync-todoist [--preview]   Todoist を取り込む（capture=inbox → Bismuth）'] : []),
@@ -226,7 +226,7 @@ async function main(): Promise<void> {
     if (!title || !project) {
       console.error(
         'create には --title と --project が必要です。\n' +
-          '例: npm run cli -- create --project alpha --title "ログイン画面の不具合調査" ' +
+          '例: bismuth-tasks cli create --project alpha --title "ログイン画面の不具合調査" ' +
           '[--status backlog --priority P2 --due 2026-07-20 --tags a,b --estimate 2 --body "概要"]',
       )
       process.exit(1)
@@ -249,7 +249,7 @@ async function main(): Promise<void> {
 
   if (command === 'done') {
     if (args.length === 0) {
-      console.error('done には完了にするタスクの ID が必要です。\n例: npm run cli -- done bismuth-33 34')
+      console.error('done には完了にするタスクの ID が必要です。\n例: bismuth-tasks cli done alpha-12 13')
       process.exit(1)
     }
     const all = await scanTasks(vault)
@@ -257,7 +257,7 @@ async function main(): Promise<void> {
     for (const ref of args) {
       const parsed = parseTaskRef(ref)
       if (!parsed) {
-        console.error(`! ${ref}: ID は「bismuth-33」か「33」の形式で指定してください`)
+        console.error(`! ${ref}: ID は「alpha-12」か「12」の形式で指定してください`)
         failed++
         continue
       }
@@ -290,13 +290,13 @@ async function main(): Promise<void> {
     if (!ref || !body.trim()) {
       console.error(
         'comment にはタスク ID と本文が必要です。\n' +
-          '例: npm run cli -- comment bismuth-33 "実施内容のメモ" [--author "bismuthセッション"]',
+          '例: bismuth-tasks cli comment alpha-12 "実施内容のメモ" [--author "作業メモ"]',
       )
       process.exit(1)
     }
     const parsed = parseTaskRef(ref)
     if (!parsed) {
-      console.error(`! ${ref}: ID は「bismuth-33」か「33」の形式で指定してください`)
+      console.error(`! ${ref}: ID は「alpha-12」か「12」の形式で指定してください`)
       process.exit(1)
     }
     const all = await scanTasks(vault)
@@ -332,13 +332,13 @@ async function main(): Promise<void> {
     if (!ref || (add.length === 0 && remove.length === 0)) {
       console.error(
         'tag にはタスク ID と --add / --remove のどちらかが必要です。\n' +
-          '例: npm run cli -- tag alpha-24 --add ai-done --remove ai',
+          '例: bismuth-tasks cli tag alpha-24 --add ai-done --remove ai',
       )
       process.exit(1)
     }
     const parsed = parseTaskRef(ref)
     if (!parsed) {
-      console.error(`! ${ref}: ID は「bismuth-33」か「33」の形式で指定してください`)
+      console.error(`! ${ref}: ID は「alpha-12」か「12」の形式で指定してください`)
       process.exit(1)
     }
     const all = await scanTasks(vault)

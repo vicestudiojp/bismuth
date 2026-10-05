@@ -22,34 +22,34 @@ Obsidian の同期機能や Git で vault を共有すれば、複数のマシ�
 - Node.js 20 以上
 - タスクノートを置くフォルダ（Obsidian の vault を想定していますが、Markdown ファイルを置ける普通のフォルダでも動きます）
 
-## セットアップ
+## 使い方
+
+インストールせずに、次のコマンドで起動できます。
 
 ```sh
-git clone <このリポジトリの URL> bismuth
-cd bismuth
-npm install
+npx bismuth-tasks
 ```
 
-次に、vault の場所を設定ファイル `~/.config/bismuth/config.json` に書きます。
-
-```json
-{
-  "root": "~/path/to/your/vault"
-}
-```
-
-設定ファイルがない場合は `~/bismuth` を vault とみなします。
-環境変数 `BISMUTH_VAULT` を指定すると、設定ファイルより優先されます。
-
-## 起動
-
-```sh
-npm run app
-```
-
-ブラウザで http://localhost:8383 を開きます。
+初回の起動では、タスクノートを置く vault の場所を尋ねられます。
+入力した場所は `~/.config/bismuth/config.json` に保存され、次回からは尋ねられません。
+起動するとブラウザで http://localhost:8383 が開きます。
 ポート番号は、ビスマスの原子番号 83 にちなんでいます。
-環境変数 `BISMUTH_PORT` で変更できます。
+
+毎回 `npx` で取得せずに使いたい場合は、グローバルにインストールします。
+
+```sh
+npm install -g bismuth-tasks
+bismuth-tasks
+```
+
+主なオプションは次のとおりです。
+
+```sh
+bismuth-tasks --port 8400         # ポートを変える
+bismuth-tasks --vault ~/notes     # 今回だけ別の vault を使う（設定は書き換えない）
+bismuth-tasks --no-open           # ブラウザを開かない
+bismuth-tasks --help
+```
 
 起動後は、画面右上の設定ボタンから vault の場所やタスクフォルダを変更できます。
 
@@ -127,17 +127,18 @@ Bismuth が書き換えるのは frontmatter と、`## 概要`、`## サブタ�
 ## CLI
 
 サーバを起動しなくても、ターミナルから vault を直接読み書きできます。
+`npx` で使う場合は、`bismuth-tasks` を `npx bismuth-tasks` に読み替えてください。
 
 ```sh
-npm run cli                                   # ボード表示
-npm run cli -- --list                         # フラットな一覧
-npm run cli -- --json                         # JSON 出力
-npm run cli -- --project alpha --status dotoday,inprogress --priority P1,P2 --due 1week
-npm run cli -- create --project alpha --title "ログイン画面の不具合調査" --priority P2
-npm run cli -- done alpha-12                  # 完了にする
-npm run cli -- comment alpha-12 "原因を特定した" --author "作業メモ"
-npm run cli -- tag alpha-12 --add waiting     # タグを付け外しする
-npm run cli -- --help
+bismuth-tasks cli                             # ボード表示
+bismuth-tasks cli --list                      # フラットな一覧
+bismuth-tasks cli --json                      # JSON 出力
+bismuth-tasks cli --project alpha --status dotoday,inprogress --priority P1,P2 --due 1week
+bismuth-tasks cli create --project alpha --title "ログイン画面の不具合調査" --priority P2
+bismuth-tasks cli done alpha-12               # 完了にする
+bismuth-tasks cli comment alpha-12 "原因を特定した" --author "作業メモ"
+bismuth-tasks cli tag alpha-12 --add waiting  # タグを付け外しする
+bismuth-tasks cli --help
 ```
 
 タスクの指定は `alpha-12` と `12` のどちらの形でもできます。
@@ -145,19 +146,30 @@ npm run cli -- --help
 ## 開発
 
 ```sh
+git clone https://github.com/vicestudiojp/bismuth.git
+cd bismuth
+npm install
 npm run dev:server   # API サーバ（ポート 8383）
 npm run dev:web      # Vite の開発サーバ（ポート 5183。/api は 8383 へ転送）
 ```
 
-構成は npm workspaces です。
+ディレクトリの構成は次のとおりです。
 
 - `server/`：Fastify と TypeScript による API サーバと CLI
 - `web/`：React と Vite による画面
+- `bin/`：`bismuth-tasks` コマンドの入口
+
+`npm run build` で `dist/` にサーバと画面をビルドし、`npm run app` でビルドしてから起動します。
+CLI は `npm run cli -- <引数>` で、ビルドせずに動かせます。
 
 `server/scripts/verify-*.ts` は、一時フォルダに小さな vault を作って動作を確かめる検証スクリプトです。
 実際の vault には触れません。
+`npm run verify` ですべて実行できます。
 
-```sh
-cd server
-npx tsx scripts/verify-update.ts
-```
+## ライセンス
+
+Copyright (C) 2026 ViceStudio
+
+このプログラムはフリーソフトウェアです。
+GNU General Public License バージョン 3 の条件のもとで、再配布や改変ができます。
+全文は [LICENSE](LICENSE) を参照してください。
