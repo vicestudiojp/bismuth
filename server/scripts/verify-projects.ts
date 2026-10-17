@@ -3,7 +3,7 @@
 // 実行: npx tsx scripts/verify-projects.ts
 //
 // 方針（2026-07-13 オーナー指示）:
-// - 項目は id（必須・半角英数/ハイフン/アンダースコア）・概要（任意）・Todoist プロジェクト名（任意）
+// - 項目は id（必須・半角英数/ハイフン/アンダースコア。先頭は英数かアンダースコア）・概要（任意）・Todoist プロジェクト名（任意）
 // - id は不変（ファイル名 <project>-<task-id> と置き場 _task/<project>/ に使うため）
 // - vault のノートが正本。アプリ外で作られたプロジェクトは起動時に自動登録する
 // - 共有設定の未知キー（taskGlobs 等・人が手で足した設定）は温存する
@@ -80,6 +80,11 @@ for (const [name, id] of [
 }
 const ok = addProject(vault, { id: 'Talk_News-v2' })
 check('バリデーション: 英数・ハイフン・アンダースコアは通る', ok.id === 'Talk_News-v2')
+const underscore = addProject(vault, { id: '_private' })
+check('バリデーション: 先頭がアンダースコアの id は通る', underscore.id === '_private')
+const underscoreTask = await createTask(vault, { title: 'アンダースコアのプロジェクト', project: '_private' })
+check('先頭アンダースコア: タスクは _task/_private/ に作られる', underscoreTask.task.file.startsWith(path.join('_task', '_private')))
+check('先頭アンダースコア: スキャンに出る', (await scanTasks(vault)).some((t) => t.project === '_private'))
 
 // 5) 重複（大文字小文字違いも弾く。ファイル名が衝突するため）
 let dupRejected = false

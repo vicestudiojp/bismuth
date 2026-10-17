@@ -218,8 +218,8 @@ export default function ProjectsModal({
                 value={id}
                 onChange={(e) => setId(e.target.value)}
                 required
-                pattern="[A-Za-z0-9][A-Za-z0-9_\-]*"
-                title="半角英数・ハイフン・アンダースコアのみ（先頭は英数）"
+                pattern="[A-Za-z0-9_][A-Za-z0-9_\-]*"
+                title="半角英数・ハイフン・アンダースコアのみ（先頭は英数かアンダースコア）"
               />
             </label>
             {todoist && (

@@ -2,7 +2,7 @@
 // ドットフォルダなので Obsidian のツリーには出ず、Drive 同期で全マシンに行き渡る。
 //
 // プロジェクト id はファイル名（<project>-<task-id> <title>.md）と置き場（_task/<project>/）に
-// 使う不変キー。半角英数・ハイフン・アンダースコアのみ。
+// 使う不変キー。半角英数・ハイフン・アンダースコアのみ（先頭は英数かアンダースコア）。
 import fs from 'node:fs'
 import path from 'node:path'
 import { configPath, taskDir, trashDir } from './settings.js'
@@ -19,7 +19,7 @@ export interface ProjectInput {
   todoistProject?: string | null
 }
 
-const ID_RE = /^[A-Za-z0-9][A-Za-z0-9_-]*$/
+const ID_RE = /^[A-Za-z0-9_][A-Za-z0-9_-]*$/
 
 // configPath（共有設定 <root>/<configFolder>/config.json の場所）は settings.ts が持つ（設定フォルダは可変）
 
@@ -105,7 +105,7 @@ export function validateProjectId(id: string): string {
   const v = (id ?? '').trim()
   if (!v) throw new Error('プロジェクト id は必須です')
   if (!ID_RE.test(v)) {
-    throw new Error('プロジェクト id は半角英数・ハイフン・アンダースコアのみ使えます（先頭は英数）')
+    throw new Error('プロジェクト id は半角英数・ハイフン・アンダースコアのみ使えます（先頭は英数かアンダースコア）')
   }
   return v
 }
