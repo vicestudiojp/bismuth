@@ -148,7 +148,7 @@ function comparator(mode: SortMode): (a: Task, b: Task) => number {
       return (a, b) => a.taskId - b.taskId
     case 'id-desc':
       return (a, b) => b.taskId - a.taskId
-    // 更新日: 同日内は既定（優先度→order→id）で安定させる。updated なしは昇順・降順とも最後
+    // 更新日: 時刻付き（bismuth-223）なら時刻順。同じ値どうしは既定（優先度→order→id）で安定させる。updated なしは昇順・降順とも最後
     case 'updated-asc':
       return (a, b) => compareDate(a.updated, b.updated, false) || byPriorityThenOrderThenId(a, b)
     case 'updated-desc':
@@ -198,7 +198,7 @@ export default function App() {
     b.setDate(b.getDate() - doneHideAfterDays)
     const m = String(b.getMonth() + 1).padStart(2, '0')
     const day = String(b.getDate()).padStart(2, '0')
-    return d <= `${b.getFullYear()}-${m}-${day}`
+    return d.slice(0, 10) <= `${b.getFullYear()}-${m}-${day}` // 時刻付き（bismuth-223）は日付部分で比べる
   }
 
   const loadTasks = useCallback(() => {

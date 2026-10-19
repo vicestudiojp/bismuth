@@ -67,7 +67,10 @@ check(
   /^### \d{4}-\d{2}-\d{2} \d{2}:\d{2} — 秘書$/m.test(note1),
 )
 check('comment: 本文が「## コメント」セクションに入る', /## コメント[\s\S]*1件目の実施メモ/.test(note1))
-check('comment: updated を当日に更新する', (await getTask(vault, t1.task.taskId))?.task.updated === today())
+check(
+  'comment: updated を当日の日時（分まで）に更新する',
+  new RegExp(`^${today()}T\\d{2}:\\d{2}$`).test((await getTask(vault, t1.task.taskId))?.task.updated ?? ''),
+)
 
 // 2) パーサ（extractComments）が書いたコメントを読める（＝web と往復できる）
 const d2 = await getTask(vault, t1.task.taskId)

@@ -58,6 +58,11 @@ function toStamp(v: string): string {
   return v.replace('T', ' ').slice(0, 16)
 }
 
+// 作成・更新は分まで記録する（2026-07-13T15:20・bismuth-223）が、画面には日付だけ出す
+function dateOnly(v: string | null): string {
+  return v ? v.slice(0, 10) : '-'
+}
+
 function nowLocalInput(): string {
   const d = new Date()
   const pad = (n: number) => String(n).padStart(2, '0')
@@ -361,11 +366,11 @@ export default function TaskModal({
               )}
               <div>
                 <dt>作成</dt>
-                <dd>{detail.task.created ?? '-'}</dd>
+                <dd>{dateOnly(detail.task.created)}</dd>
               </div>
               <div>
                 <dt>更新</dt>
-                <dd>{detail.task.updated ?? '-'}</dd>
+                <dd>{dateOnly(detail.task.updated)}</dd>
               </div>
               <div className="meta-file">
                 <dt>ファイル</dt>

@@ -133,7 +133,7 @@ check(
     note1.includes('| Start | End | Memo |') &&
     note1.includes('- [[温存されるべきリンク]]'),
 )
-check('追記: updated を当日に更新', note1.includes(`updated: ${todayStr}`))
+check('追記: updated を当日の日時（分まで）に更新', new RegExp(`^updated: ${todayStr}T\\d{2}:\\d{2}$`, 'm').test(note1))
 check('追記: frontmatter の他キーは不変', note1.includes('created: 2026-07-10') && note1.includes('status: backlog'))
 check('追記: 見出しの直後に本文が続く（空行を挟まない）', /### .+ — オーナー\n追記されたコメント。/.test(note1))
 

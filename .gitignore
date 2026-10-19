@@ -1,10 +1,11 @@
 node_modules/
 dist/
+.playwright*
+
 # npm pack が作る配布物の tarball
 *.tgz
 *.local
 .DS_Store
 
-
-# エージェント向けの作業メモ（オーナーの環境・運用に依存するため公開しない）
+# エージェント向けの作業メモ
 CLAUDE.md

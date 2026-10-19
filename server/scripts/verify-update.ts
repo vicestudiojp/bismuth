@@ -172,11 +172,29 @@ check('概要バリデーション: h1 を拒否（登録時）', rejectedCreate
 const now = new Date()
 const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
 const done1 = await updateTask(vault, 1, { status: 'done' })
-check('completed: done への遷移で今日の日付が入る', done1?.task.completed === todayStr, String(done1?.task.completed))
+check(
+  'completed: done への遷移で今日の日時（分まで・bismuth-223）が入る',
+  new RegExp(`^${todayStr}T\\d{2}:\\d{2}$`).test(done1?.task.completed ?? ''),
+  String(done1?.task.completed),
+)
 const kept = await updateTask(vault, 1, { estimate: 5 })
-check('completed: done のまま属性更新しても維持', kept?.task.completed === todayStr, String(kept?.task.completed))
+check('completed: done のまま属性更新しても維持', kept?.task.completed === done1?.task.completed, String(kept?.task.completed))
 const reopened = await updateTask(vault, 1, { status: 'backlog' })
 check('completed: done から戻すと消える', reopened?.task.completed === null, String(reopened?.task.completed))
+
+// 5b) 更新日も分まで記録する。日付だけの既存 created は書き換えない。何も変えない保存では updated を動かさない
+check('updated: 今日の日時（分まで）', new RegExp(`^${todayStr}T\\d{2}:\\d{2}$`).test(reopened?.task.updated ?? ''), String(reopened?.task.updated))
+check('created: 日付だけの既存値はそのまま', reopened?.task.created === '2026-07-10', String(reopened?.task.created))
+const file1 = path.join(vault, reopened!.task.file)
+const setUpdated = (v: string) =>
+  fs.writeFileSync(file1, fs.readFileSync(file1, 'utf-8').replace(/^updated: .*$/m, `updated: ${v}`), 'utf-8')
+setUpdated('2026-07-11T09:30')
+const noop = await updateTask(vault, 1, { estimate: 5 })
+check('updated: 何も変えない保存では動かさない', noop?.task.updated === '2026-07-11T09:30', String(noop?.task.updated))
+// Obsidian 等で秒まで書かれた値は js-yaml が Date にするが、書かれた時刻のまま読む
+setUpdated('2026-07-11T09:30:15')
+const withSec = (await scanTasks(vault)).find((t) => t.taskId === 1)
+check('updated: 秒付きの値も時刻を落とさず読む', withSec?.updated === '2026-07-11T09:30', String(withSec?.updated))
 
 // 6) order（手動並べ替え）: 設定・解除できる。中間値の小数も書ける
 const ordered = await updateTask(vault, 1, { order: 15.5 })

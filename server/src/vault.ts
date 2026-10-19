@@ -66,6 +66,10 @@ function toDateString(v: unknown): string | null {
     const y = v.getFullYear()
     const m = String(v.getMonth() + 1).padStart(2, '0')
     const d = String(v.getDate()).padStart(2, '0')
+    // 秒まで書かれた日時は js-yaml がタイムゾーンなし＝UTC として Date にする。UTC の値が書かれた時刻そのもの
+    if (v.getUTCHours() || v.getUTCMinutes() || v.getUTCSeconds()) {
+      return v.toISOString().slice(0, 16)
+    }
     return `${y}-${m}-${d}`
   }
   return String(v)
@@ -178,6 +182,12 @@ function todayString(): string {
   return `${now.getFullYear()}-${m}-${d}`
 }
 
+// 作成・更新・完了の記録は分まで（bismuth-223）。書式は Obsidian のプロパティ型「日付と時刻」に合わせる。
+// 秒を付けないので YAML では文字列のまま読まれる。時刻の無い既存ノートは書き換えず、日付だけの値と混在してよい
+function nowDateTime(): string {
+  return nowStamp().replace(' ', 'T')
+}
+
 // 削除したノートの置き場は設定のゴミ箱フォルダ（trashDir・既定 _task/.trash）。ドット始まりなので
 // スキャングロブにも Obsidian のファイルツリーにも出てこない。復元はタスクフォルダに戻すだけ。
 
@@ -261,7 +271,7 @@ export async function createTask(vault: string, input: NewTaskInput): Promise<Ta
   const filePath = path.join(dir, fileName)
   if (fs.existsSync(filePath)) throw new Error(`ファイルが既に存在します: ${fileName}`)
 
-  const today = todayString()
+  const now = nowDateTime()
   // タグは指定されたものだけを付ける。どの経路（web・CLI・Todoist 取込）でも
   // 既定タグ [project, 'task'] は付けない（2026-07-17 オーナー判断・bismuth-33）
   const tags = input.tags ?? []
@@ -277,9 +287,9 @@ export async function createTask(vault: string, input: NewTaskInput): Promise<Ta
     `estimate:${input.estimate != null ? ` ${input.estimate}` : ''}`,
     `parent:${input.parent != null ? ` ${input.parent}` : ''}`,
     `order:${input.order != null ? ` ${input.order}` : ''}`,
-    `created: ${today}`,
-    `updated: ${today}`,
-    `completed:${status === 'done' ? ` ${today}` : ''}`,
+    `created: ${now}`,
+    `updated: ${now}`,
+    `completed:${status === 'done' ? ` ${now}` : ''}`,
     `todoist-id:${input.todoistId ? ` ${input.todoistId}` : ''}`,
     '---',
     '',
@@ -317,9 +327,9 @@ export async function createTask(vault: string, input: NewTaskInput): Promise<Ta
       estimate: input.estimate ?? null,
       parent: input.parent ?? null,
       order: input.order ?? null,
-      created: today,
-      updated: today,
-      completed: status === 'done' ? today : null,
+      created: now,
+      updated: now,
+      completed: status === 'done' ? now : null,
     }),
     body: note.slice(note.indexOf('---', 3) + 4),
     overview: input.body?.trim() || '（未記入）',
@@ -471,7 +481,7 @@ export async function addComment(
     if (!isTaskNote(data) || Number(data['task-id']) !== taskId) continue
 
     let next = appendToSection(raw, 'コメント', `### ${nowStamp()} — ${author}\n${body}`)
-    next = setFrontmatterValue(next, 'updated', todayString())
+    next = setFrontmatterValue(next, 'updated', nowDateTime())
     fs.writeFileSync(file, next, 'utf-8')
 
     const { data: newData, content } = matter(fs.readFileSync(file, 'utf-8'))
@@ -586,7 +596,7 @@ export async function addWorkSession(
     if (!isTaskNote(data) || Number(data['task-id']) !== taskId) continue
 
     let next = appendWorkSessionRow(raw, workSessionRow(session))
-    next = setFrontmatterValue(next, 'updated', todayString())
+    next = setFrontmatterValue(next, 'updated', nowDateTime())
     fs.writeFileSync(file, next, 'utf-8')
 
     const { data: newData, content } = matter(fs.readFileSync(file, 'utf-8'))
@@ -700,7 +710,7 @@ export async function updateTask(
       // web の status 変更も CLI の done もここを通るので、記録経路はこの1箇所だけ
       const wasDone = String(data.status ?? '') === 'done'
       if (input.status === 'done' && !wasDone) {
-        next = setFrontmatterValue(next, 'completed', todayString())
+        next = setFrontmatterValue(next, 'completed', nowDateTime())
       } else if (input.status !== 'done' && wasDone) {
         next = setFrontmatterValue(next, 'completed', '')
       }
@@ -744,8 +754,11 @@ export async function updateTask(
       next = replaceSubtasks(next, input.subtasks)
     }
 
-    next = setFrontmatterValue(next, 'updated', todayString())
-    if (next !== raw) fs.writeFileSync(file, next, 'utf-8')
+    // 何も変わらない保存では updated を動かさない（分単位なので、付け直すと毎回書き込みになる）
+    if (next !== raw) {
+      next = setFrontmatterValue(next, 'updated', nowDateTime())
+      fs.writeFileSync(file, next, 'utf-8')
+    }
 
     // タイトル変更時はファイル名もリネームする。
     // 他ノートの [[リンク]] は書き換えない（vault 全体の自動置換はリスクが大きいため

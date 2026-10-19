@@ -72,6 +72,15 @@ check('取得: task-id で引ける', (await getTask(vault, 1))?.task.title === 
 // 7) 本文の体裁は従来どおり（H1 は「# <id> <title>」・ファイル名の規則とは独立）
 check('本文: H1 は「# <id> <title>」のまま', note1.includes('# 1 一覧画面の並び順を直す'))
 
+// 8) 作成日・更新日は分まで記録する（YYYY-MM-DDTHH:mm・bismuth-223）。完了日は done で起票したときだけ
+const stamp = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/
+check('日時: created は YYYY-MM-DDTHH:mm', stamp.test(t1.task.created ?? ''), String(t1.task.created))
+check('日時: updated は created と同じ', t1.task.updated === t1.task.created, String(t1.task.updated))
+check('日時: frontmatter にも同じ値', note1.includes(`created: ${t1.task.created}\nupdated: ${t1.task.created}\n`))
+check('日時: 読み戻しても文字列のまま（Date 化されない）', (await getTask(vault, 1))?.task.created === t1.task.created)
+const t5 = await createTask(vault, { title: '完了で起票する', project: 'testproj', status: 'done' })
+check('日時: done で起票すると completed も分まで', t5.task.completed === t5.task.created, String(t5.task.completed))
+
 console.log(`\n結果: PASS ${pass} / FAIL ${fail}`)
 if (fail === 0) {
   fs.rmSync(vault, { recursive: true, force: true })
