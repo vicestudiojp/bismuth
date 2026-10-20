@@ -11,7 +11,8 @@ Obsidian の同期機能や Git で vault を共有すれば、複数のマシ�
 
 - カンバン形式のボード（IceBox、Backlog、DoToday、In Progress、Done）とドラッグによるステータス変更
 - カラムごとの並べ替え（優先度、期限、プロジェクト、完了日、タスク番号、更新日、手動）
-- タスクの起票と編集（タイトル、ステータス、優先度、期限、見積時間、タグ、概要、サブタスク）
+- タスクの起票と編集（タイトル、ステータス、優先度、期限、繰り返し、見積時間、タグ、概要、サブタスク）
+- 繰り返しタスク（毎日、毎週、隔週、毎月、曜日指定、N 日ごと）
 - タスクへのコメントと作業記録の追記
 - プロジェクト、優先度、タグ、期限による絞り込み
 - ターミナルから一覧の表示や起票、完了、コメントができる CLI
@@ -66,6 +67,7 @@ project: alpha
 status: backlog
 priority: P2
 due: 2026-07-20
+repeat:
 tags: [waiting]
 estimate: 2
 parent:
@@ -101,6 +103,7 @@ frontmatter の各項目は次のとおりです。
 - **status**：`icebox`、`backlog`、`dotoday`、`inprogress`、`done`、`dropped`（やらない）のいずれか
 - **priority**：`P1`（最優先）から `P4` まで。空欄は優先度なし
 - **due**：期限（`YYYY-MM-DD`）
+- **repeat**：繰り返しのルール。空欄は繰り返さない（後述の「繰り返しタスク」を参照）
 - **estimate**：見積時間（時間単位）
 - **order**：並べ替えを「手動」にしたときの並び順
 
@@ -113,6 +116,32 @@ Bismuth が書き換えるのは frontmatter と、`## 概要`、`## サブタ�
 他のノートからの `[[リンク]]` は自動では書き換わらないので、必要なら Obsidian 側で更新してください。
 タスクを削除すると、ノートは `_task/.trash/` に移ります。
 ファイル自体は消えないので、元のフォルダに戻せば復元できます。
+
+### 繰り返しタスク
+
+`repeat` にルールを書いたタスクは、done にすると完了にならず、期限を次回へ進めて backlog に戻ります。
+ノートは1つのまま使い回します。
+
+| repeat | 意味 |
+|---|---|
+| `daily` | 毎日 |
+| `weekly` | 毎週（期限と同じ曜日） |
+| `biweekly` | 隔週 |
+| `monthly` | 毎月（期限と同じ日。その日が無い月は月末） |
+| `weekly:mon,thu` | 指定した曜日（`sun` `mon` `tue` `wed` `thu` `fri` `sat`） |
+| `every:3d` | N 日ごと |
+
+次回の期限は、今の期限（無ければ完了した日）からルールに従って進めます。
+進めた日が今日以前なら、今日より後になるまで進めます。
+期限を何回分か過ぎてから完了しても、次に出るのは1回分だけです。
+
+done にしたときは次のことも行います。
+
+- `## コメント` に「繰り返し: 完了（期限 2026-07-20）→ 次回期限 2026-07-21」の形で履歴を1件追記する
+- `## サブタスク` のチェック済みの項目を未完了に戻す
+
+繰り返しをやめて完了にするときは、`repeat` を空にしてから done にします。
+Obsidian で `status` を直接 `done` に書き換えた場合は、繰り返しの処理は行われません。
 
 ## 設定
 
@@ -135,7 +164,8 @@ bismuth-tasks cli --list                      # フラットな一覧
 bismuth-tasks cli --json                      # JSON 出力
 bismuth-tasks cli --project alpha --status dotoday,inprogress --priority P1,P2 --due 1week
 bismuth-tasks cli create --project alpha --title "ログイン画面の不具合調査" --priority P2
-bismuth-tasks cli done alpha-12               # 完了にする
+bismuth-tasks cli create --project alpha --title "日次レビュー" --due 2026-07-20 --repeat daily
+bismuth-tasks cli done alpha-12               # 完了にする（繰り返しタスクは次回の期限で backlog に戻る）
 bismuth-tasks cli comment alpha-12 "原因を特定した" --author "作業メモ"
 bismuth-tasks cli tag alpha-12 --add waiting  # タグを付け外しする
 bismuth-tasks cli --help

@@ -20,6 +20,7 @@ type Task = {
   status: string
   priority: string | null
   due: string | null
+  repeat: string | null
   tags: string[]
   estimate: number | null
   parent: number | null
@@ -512,7 +513,15 @@ export default function App() {
                         {t.project}-{t.taskId}
                       </span>
                     </div>
-                    <div className="card-title">{t.title}</div>
+                    <div className="card-title">
+                      {t.title}
+                      {t.repeat && (
+                        <span className="card-repeat" title="繰り返しタスク">
+                          {' '}
+                          ↻
+                        </span>
+                      )}
+                    </div>
                     {showFields && (
                       <div className="card-fields">
                         {/* 優先度なしは何も出さない（Todoist 準拠） */}

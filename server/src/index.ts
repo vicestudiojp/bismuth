@@ -14,6 +14,7 @@ import {
   deleteTask,
   ensureTaskIdCounter,
   findDuplicateIds,
+  findInvalidRepeats,
   getTask,
   scanTasks,
   syncProjectsFromTasks,
@@ -99,7 +100,7 @@ app.put('/api/settings', async (req, reply) => {
 // SQLite 索引は集計・規模が必要になるストーリーで導入する
 app.get('/api/tasks', async () => {
   const tasks = await scanTasks(vault)
-  return { tasks, warnings: findDuplicateIds(tasks) }
+  return { tasks, warnings: [...findDuplicateIds(tasks), ...findInvalidRepeats(tasks)] }
 })
 
 app.post('/api/tasks', async (req, reply) => {

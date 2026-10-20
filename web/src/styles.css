@@ -1193,3 +1193,40 @@ body {
   align-items: center;
   justify-content: space-between;
 }
+
+/* 繰り返し（bismuth-191） */
+.card-repeat {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.repeat-input {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.repeat-days {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+}
+
+.task-form .repeat-days .check {
+  flex: 0 0 auto;
+  flex-direction: row;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--text-2);
+  cursor: pointer;
+}
+
+.task-form .repeat-days .check input {
+  width: auto;
+  cursor: pointer;
+}
+
+.repeat-every input {
+  max-width: 120px;
+}

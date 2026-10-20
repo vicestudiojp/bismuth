@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import RepeatInput, { repeatLabel } from './RepeatInput'
 
 const STATUSES = ['icebox', 'backlog', 'dotoday', 'inprogress', 'done', 'dropped']
 const PRIORITIES = ['P1', 'P2', 'P3', 'P4']
@@ -13,6 +14,7 @@ type TaskAttrs = {
   status: string
   priority: string | null
   due: string | null
+  repeat: string | null
   tags: string[]
   estimate: number | null
   created: string | null
@@ -41,6 +43,7 @@ type Detail = {
   workSessions: WorkSession[]
   vaultName: string
   renamed?: { from: string; to: string } | null
+  recurred?: { from: string | null; to: string } | null
 }
 
 // 本文先頭の「# <id> <タイトル>」はモーダルタイトルと重複するため表示から除く
@@ -113,6 +116,7 @@ export default function TaskModal({
   const [status, setStatus] = useState('backlog')
   const [priority, setPriority] = useState('')
   const [due, setDue] = useState('')
+  const [repeat, setRepeat] = useState('')
   const [tags, setTags] = useState('')
   const [estimate, setEstimate] = useState('')
   const [overview, setOverview] = useState('')
@@ -164,6 +168,7 @@ export default function TaskModal({
     setStatus(detail.task.status)
     setPriority(detail.task.priority ?? '')
     setDue(detail.task.due ?? '')
+    setRepeat(detail.task.repeat ?? '')
     setTags(detail.task.tags.join(', '))
     setEstimate(detail.task.estimate == null ? '' : String(detail.task.estimate))
     setOverview(detail.overview)
@@ -182,6 +187,7 @@ export default function TaskModal({
     if (status !== detail.task.status) payload.status = status
     if ((priority || null) !== detail.task.priority) payload.priority = priority || null
     if ((due || null) !== detail.task.due) payload.due = due || null
+    if ((repeat || null) !== detail.task.repeat) payload.repeat = repeat || null
     const tagsArr = tags
       .split(',')
       .map((t) => t.trim())
@@ -207,11 +213,16 @@ export default function TaskModal({
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`)
       setDetail(data)
+      const notices: string[] = []
+      if (data.recurred) {
+        notices.push(`繰り返しタスクのため、次回期限 ${data.recurred.to} で backlog に戻しました`)
+      }
       if (data.renamed) {
-        setNotice(
+        notices.push(
           `ファイル名を「${data.renamed.to}」に変更しました。このノートへの [[リンク]] は自動では追従しないため、参照元がある場合は Obsidian 側で更新してください`,
         )
       }
+      if (notices.length > 0) setNotice(notices.join('。'))
       setMode('view')
       onUpdated?.()
     } catch (err) {
@@ -350,6 +361,12 @@ export default function TaskModal({
                 <div>
                   <dt>期限</dt>
                   <dd>{detail.task.due}</dd>
+                </div>
+              )}
+              {detail.task.repeat && (
+                <div>
+                  <dt>繰り返し</dt>
+                  <dd>↻ {repeatLabel(detail.task.repeat)}</dd>
                 </div>
               )}
               {detail.task.estimate != null && (
@@ -549,6 +566,7 @@ export default function TaskModal({
                   <input type="number" min="0" step="0.5" value={estimate} onChange={(e) => setEstimate(e.target.value)} />
                 </label>
               </div>
+              <RepeatInput value={repeat} onChange={setRepeat} />
               <label>
                 タグ（カンマ区切り）
                 <input value={tags} onChange={(e) => setTags(e.target.value)} />

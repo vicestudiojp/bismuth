@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
+import RepeatInput from './RepeatInput'
 
 const STATUSES = ['icebox', 'backlog', 'dotoday', 'inprogress', 'done', 'dropped']
 const PRIORITIES = ['P1', 'P2', 'P3', 'P4']
@@ -16,6 +17,7 @@ export default function NewTaskModal({ projects, onCreated, onClose }: Props) {
   const [status, setStatus] = useState('backlog')
   const [priority, setPriority] = useState('') // 既定は優先度なし
   const [due, setDue] = useState('')
+  const [repeat, setRepeat] = useState('') // 空＝繰り返さない
   const [tags, setTags] = useState('')
   const [estimate, setEstimate] = useState('')
   const [body, setBody] = useState('')
@@ -41,6 +43,7 @@ export default function NewTaskModal({ projects, onCreated, onClose }: Props) {
           priority: priority || null,
           body,
           due: due || null,
+          repeat: repeat || null,
           // 空欄ならタグなし（既定タグは付けない）
           tags: tagList,
           estimate: estimate === '' ? null : Number(estimate),
@@ -111,6 +114,7 @@ export default function NewTaskModal({ projects, onCreated, onClose }: Props) {
               <input type="number" min="0" step="0.5" value={estimate} onChange={(e) => setEstimate(e.target.value)} />
             </label>
           </div>
+          <RepeatInput value={repeat} onChange={setRepeat} />
           <label>
             タグ（カンマ区切り・空ならタグなし）
             <input value={tags} onChange={(e) => setTags(e.target.value)} placeholder="waiting, 調査" />

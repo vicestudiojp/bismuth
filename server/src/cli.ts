@@ -9,6 +9,7 @@
 //   npm run cli -- sync-todoist            # Todoist を取り込む（capture=inbox → Bismuth。BISMUTH_TODOIST=1 のときだけ）
 //   npm run cli -- sync-todoist --preview  # 取り込み予定だけ表示（書き込まない）
 //   npm run cli -- done bismuth-33 34      # タスクを完了にする（ID は project-N でも数字でも可）
+//   npm run cli -- create --project alpha --title "日次レビュー" --due 2026-07-20 --repeat daily   # 繰り返しタスクを起票
 //   npm run cli -- comment bismuth-33 "実施メモ" [--author 秘書]   # コメントを追記（書式は仕様どおり CLI が付ける）
 //   npm run cli -- tag bismuth-33 --add ai-done --remove ai        # タグを付け外しする（カンマ区切りで複数可）
 import { applyLayout, resolveSettings } from './settings.js'
@@ -129,7 +130,7 @@ function applyFilters(tasks: TaskCard[], flags: Record<string, string>, now: Dat
   return out
 }
 
-// 1タスク1行。例: alpha-5   [P1] タイトル  (⚠07-18) #waiting ⏱2h
+// 1タスク1行。例: alpha-5   [P1] タイトル ↻ (⚠07-18) #waiting ⏱2h（↻ = 繰り返し）
 function line(t: TaskCard, today: string, idWidth: number): string {
   const id = `${t.project}-${t.taskId}`.padEnd(idWidth)
   const prio = t.priority ? `[${t.priority}] ` : ''
@@ -137,7 +138,8 @@ function line(t: TaskCard, today: string, idWidth: number): string {
   const due = t.due ? ` (${overdue ? '⚠' : ''}${t.due})` : ''
   const tags = t.tags.length > 0 ? ` ${t.tags.map((x) => `#${x}`).join(' ')}` : ''
   const est = t.estimate != null ? ` ⏱${t.estimate}h` : ''
-  return `  ${id}  ${prio}${t.title}${due}${tags}${est}`
+  const repeat = t.repeat ? ' ↻' : ''
+  return `  ${id}  ${prio}${t.title}${repeat}${due}${tags}${est}`
 }
 
 function idWidthOf(tasks: TaskCard[]): number {
@@ -186,8 +188,9 @@ async function main(): Promise<void> {
         '  --list          フラット一覧（dropped=やらない は --status dropped のときだけ出す）',
         '  --json          JSON 出力',
         '  --project <ids> / --status <s> / --priority <P1,none> / --due <1week> / --tag <t>（カンマ区切り）',
-        '  create --project <id> --title "..." [--status --priority --due --tags --estimate --body]   タスクを新規作成',
-        '  done <id...>    タスクを完了にする（例: done alpha-12 13。複数まとめて可）',
+        '  create --project <id> --title "..." [--status --priority --due --repeat --tags --estimate --body]   タスクを新規作成',
+        '                  --repeat: daily / weekly / biweekly / monthly / weekly:mon,thu / every:3d',
+        '  done <id...>    タスクを完了にする（例: done alpha-12 13。複数まとめて可。繰り返しタスクは次回期限で backlog に戻る）',
         '  comment <id> "本文" [--author 秘書]   コメントを追記（既定の書き手=秘書。見出し #〜### は本文に使えない）',
         '  tag <id> [--add a,b] [--remove c]   タグを付け外しする',
         ...(todoistEnabled() ? ['  sync-todoist [--preview]   Todoist を取り込む（capture=inbox → Bismuth）'] : []),
@@ -227,7 +230,7 @@ async function main(): Promise<void> {
       console.error(
         'create には --title と --project が必要です。\n' +
           '例: bismuth-tasks cli create --project alpha --title "ログイン画面の不具合調査" ' +
-          '[--status backlog --priority P2 --due 2026-07-20 --tags a,b --estimate 2 --body "概要"]',
+          '[--status backlog --priority P2 --due 2026-07-20 --repeat weekly --tags a,b --estimate 2 --body "概要"]',
       )
       process.exit(1)
     }
@@ -235,6 +238,7 @@ async function main(): Promise<void> {
     if (flags.status) input.status = flags.status
     if (flags.priority) input.priority = flags.priority
     if (flags.due) input.due = flags.due
+    if (flags.repeat) input.repeat = flags.repeat
     if (flags.tags) input.tags = flags.tags.split(',').map((s) => s.trim()).filter(Boolean)
     if (flags.estimate) {
       const est = Number(flags.estimate)
@@ -277,8 +281,14 @@ async function main(): Promise<void> {
         console.log(`- ${task.project}-${task.taskId}  ${task.title}（既に done）`)
         continue
       }
-      await updateTask(vault, task.taskId, { status: 'done' })
-      console.log(`完了: ${task.project}-${task.taskId}  ${task.title}（${task.status} → done）`)
+      const result = await updateTask(vault, task.taskId, { status: 'done' })
+      if (result?.recurred) {
+        console.log(
+          `繰り返し: ${task.project}-${task.taskId}  ${task.title}（次回期限 ${result.recurred.to} で backlog に戻しました）`,
+        )
+      } else {
+        console.log(`完了: ${task.project}-${task.taskId}  ${task.title}（${task.status} → done）`)
+      }
     }
     if (failed > 0) process.exit(1)
     return

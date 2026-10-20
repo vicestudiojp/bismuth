@@ -3,6 +3,7 @@ import path from 'node:path'
 import fg from 'fast-glob'
 import matter from 'gray-matter'
 import { claimTaskId, ensureProjects, readNextTaskId, setNextTaskId, validateProjectId } from './projects.js'
+import { nextDue, normalizeRepeat, parseRepeat } from './recurrence.js'
 import { configPath, taskDir, taskGlobPattern, taskIdGlobs, trashDir } from './settings.js'
 
 export interface TaskCard {
@@ -12,6 +13,7 @@ export interface TaskCard {
   status: string
   priority: string | null // P1〜P4（P1 が最優先）。未設定（既存ノート・取込ノート）は null
   due: string | null
+  repeat: string | null // 繰り返しルール（recurrence.ts の書式）。未設定は null。手書きの不正値もそのまま返す（警告に載せる）
   tags: string[]
   estimate: number | null
   parent: number | null
@@ -94,6 +96,7 @@ function toCard(vault: string, file: string, data: Record<string, unknown>): Tas
     status: String(data.status ?? 'backlog'),
     priority: toPriority(data.priority),
     due: toDateString(data.due),
+    repeat: data.repeat == null || String(data.repeat).trim() === '' ? null : String(data.repeat).trim(),
     tags: Array.isArray(data.tags) ? data.tags.map(String) : [],
     estimate: toNumberOrNull(data.estimate),
     parent: toNumberOrNull(data.parent),
@@ -132,6 +135,7 @@ export interface NewTaskInput {
   priority?: string | null
   body?: string
   due?: string | null
+  repeat?: string | null // 繰り返しルール（空・null で繰り返さない）
   tags?: string[]
   estimate?: number | null
   parent?: number | null
@@ -260,6 +264,7 @@ export async function createTask(vault: string, input: NewTaskInput): Promise<Ta
   if (!(STATUSES as readonly string[]).includes(status)) throw new Error(`status が不正です: ${status}`)
   const priority = normalizePriority(input.priority) // 既定は「優先度なし」
   if (input.due && !/^\d{4}-\d{2}-\d{2}$/.test(input.due)) throw new Error('期限は YYYY-MM-DD 形式で指定してください')
+  const repeat = normalizeRepeat(input.repeat)
   if (input.body) validateOverview(input.body)
 
   // 採番 = 最大 task-id + 1（F1 設計 2.1）。ゴミ箱の中も数える（後述 nextTaskId）
@@ -283,6 +288,7 @@ export async function createTask(vault: string, input: NewTaskInput): Promise<Ta
     `status: ${status}`,
     `priority:${priority ? ` ${priority}` : ''}`,
     `due:${input.due ? ` ${input.due}` : ''}`,
+    `repeat:${repeat ? ` ${repeat}` : ''}`,
     `tags: [${tags.map((t) => yamlValue(t.trim())).join(', ')}]`,
     `estimate:${input.estimate != null ? ` ${input.estimate}` : ''}`,
     `parent:${input.parent != null ? ` ${input.parent}` : ''}`,
@@ -323,6 +329,7 @@ export async function createTask(vault: string, input: NewTaskInput): Promise<Ta
       status,
       priority,
       due: input.due ?? null,
+      repeat,
       tags,
       estimate: input.estimate ?? null,
       parent: input.parent ?? null,
@@ -345,6 +352,7 @@ export interface UpdateTaskInput {
   title?: string
   priority?: string | null
   due?: string | null
+  repeat?: string | null // 繰り返しルール（空・null で解除）
   tags?: string[]
   estimate?: number | null
   order?: number | null // 手動並べ替え（カラムのソート「手動」）の並び位置
@@ -354,6 +362,7 @@ export interface UpdateTaskInput {
 
 export interface UpdateResult extends TaskDetail {
   renamed: { from: string; to: string } | null
+  recurred: { from: string | null; to: string } | null // 繰り返しで done を backlog に戻したときの旧期限と次回期限
 }
 
 // アプリから編集できる本文領域（概要・サブタスク）には h1/h2 見出しを許可しない
@@ -670,6 +679,13 @@ export function findDuplicateIds(tasks: TaskCard[]): string[] {
   return warnings
 }
 
+// 書式に合わない繰り返しルール（Obsidian での手書きなど）。そのタスクは done にしても繰り返さない
+export function findInvalidRepeats(tasks: TaskCard[]): string[] {
+  return tasks
+    .filter((t) => t.repeat != null && parseRepeat(t.repeat) == null)
+    .map((t) => `task-id ${t.taskId} の繰り返し「${t.repeat}」は書式が不正なため繰り返しません: 「${t.file}」`)
+}
+
 // frontmatter ブロック内の1キーだけを書き換える。他の行・書式・本文は温存する
 // （gray-matter の stringify は frontmatter 全体を再整形してしまうため使わない）
 function setFrontmatterValue(raw: string, key: string, value: string): string {
@@ -700,8 +716,23 @@ export async function updateTask(
     if (!isTaskNote(data) || Number(data['task-id']) !== taskId) continue
 
     let next = raw
+    const repeat = input.repeat !== undefined ? normalizeRepeat(input.repeat) : undefined
+    if (repeat !== undefined) next = setFrontmatterValue(next, 'repeat', repeat ?? '')
 
-    if (input.status != null) {
+    // 繰り返しタスクを done にしたら、done にせず期限を次回へ進めて backlog に戻す（bismuth-191）。
+    // web の status 変更・ボードのドラッグ・CLI の done はどれもここを通る。手書きの不正なルールは繰り返さない
+    let recurred: UpdateResult['recurred'] = null
+    if (input.status === 'done' && String(data.status ?? '') !== 'done') {
+      const rule = parseRepeat(repeat !== undefined ? repeat : String(data.repeat ?? ''))
+      if (rule) {
+        const from = input.due !== undefined ? input.due || null : toDateString(data.due)
+        recurred = { from, to: nextDue(rule, from, todayString()) }
+      }
+    }
+
+    if (recurred) {
+      next = setFrontmatterValue(next, 'status', 'backlog')
+    } else if (input.status != null) {
       if (!(STATUSES as readonly string[]).includes(input.status)) {
         throw new Error(`status が不正です: ${input.status}`)
       }
@@ -725,6 +756,7 @@ export async function updateTask(
       }
       next = setFrontmatterValue(next, 'due', input.due ?? '')
     }
+    if (recurred) next = setFrontmatterValue(next, 'due', recurred.to)
     if (input.tags !== undefined) {
       const tags = input.tags.map((t) => yamlValue(t.trim())).filter(Boolean)
       next = setFrontmatterValue(next, 'tags', `[${tags.join(', ')}]`)
@@ -752,6 +784,16 @@ export async function updateTask(
     if (input.subtasks !== undefined) {
       validateOverview(input.subtasks, 'サブタスク')
       next = replaceSubtasks(next, input.subtasks)
+    }
+
+    if (recurred) {
+      // チェックリストを次回も使えるよう、チェック済みのサブタスクを未完了に戻す（Q-2）
+      const subtasks = extractSubtasks(next)
+      const reset = subtasks.replace(/^(\s*[-*+] )\[[xX]\]/gm, '$1[ ]')
+      if (reset !== subtasks) next = replaceSubtasks(next, reset)
+      // 完了の履歴はコメントに残す（completed は backlog に戻るので記録しない・Q-3）
+      const line = `繰り返し: 完了（期限 ${recurred.from ?? 'なし'}）→ 次回期限 ${recurred.to}`
+      next = appendToSection(next, 'コメント', `### ${nowStamp()} — アプリ\n${line}`)
     }
 
     // 何も変わらない保存では updated を動かさない（分単位なので、付け直すと毎回書き込みになる）
@@ -788,6 +830,7 @@ export async function updateTask(
       workSessions: extractWorkSessions(content),
       vaultName: path.basename(vault),
       renamed,
+      recurred,
     }
   }
   return null
