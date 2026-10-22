@@ -42,7 +42,7 @@ const DEFAULT_CARD_FIELDS: CardFields = { priority: true, due: true, tags: false
 const COLUMNS: { key: string; label: string }[] = [
   { key: 'icebox', label: 'IceBox' },
   { key: 'backlog', label: 'Backlog' },
-  { key: 'dotoday', label: 'DoToday' },
+  { key: 'ready', label: 'Ready' },
   { key: 'inprogress', label: 'In Progress' },
   { key: 'done', label: 'Done' },
 ]

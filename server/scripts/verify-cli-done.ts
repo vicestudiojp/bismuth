@@ -47,7 +47,7 @@ function runCli(args: string[]): { out: string; code: number } {
   }
 }
 
-const t1 = await createTask(vault, { title: '数字だけで完了にする', project: 'testproj', status: 'dotoday' })
+const t1 = await createTask(vault, { title: '数字だけで完了にする', project: 'testproj', status: 'ready' })
 const t2 = await createTask(vault, { title: 'project-N で完了にする', project: 'testproj' })
 const t3 = await createTask(vault, { title: 'まとめて完了 その1', project: 'testproj' })
 const t4 = await createTask(vault, { title: 'まとめて完了 その2', project: 'otherproj' })
@@ -55,7 +55,7 @@ const t4 = await createTask(vault, { title: 'まとめて完了 その2', projec
 // 1) 素の数字で完了にできる
 const r1 = runCli(['done', String(t1.task.taskId)])
 check('done: 数字の ID で完了にできる', (await getTask(vault, t1.task.taskId))?.task.status === 'done')
-check('done: 変更前のステータスも出す', r1.out.includes('dotoday → done'), r1.out.trim())
+check('done: 変更前のステータスも出す', r1.out.includes('ready → done'), r1.out.trim())
 check('done: 終了コード 0', r1.code === 0)
 check('done: 完了日（completed）を記録する', (await getTask(vault, t1.task.taskId))?.task.completed != null)
 

@@ -46,8 +46,8 @@ function runCli(args: string[]): { out: string; code: number } {
   }
 }
 
-const keep = await createTask(vault, { title: '続けるタスク', project: 'testproj', status: 'dotoday' })
-const drop = await createTask(vault, { title: 'やめたタスク', project: 'testproj', status: 'dotoday' })
+const keep = await createTask(vault, { title: '続けるタスク', project: 'testproj', status: 'ready' })
+const drop = await createTask(vault, { title: 'やめたタスク', project: 'testproj', status: 'ready' })
 const doneThenDrop = await createTask(vault, { title: '完了後にやめたタスク', project: 'testproj', status: 'done' })
 
 // 1) web の詳細画面と同じ経路（updateTask）で dropped にできる。ノートは残り、完了日は付かない

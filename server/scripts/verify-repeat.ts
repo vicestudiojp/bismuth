@@ -99,7 +99,7 @@ for (const [rule, due, today, want] of cases) {
 const daily = await createTask(vault, {
   title: '日次レビュー',
   project: 'testproj',
-  status: 'dotoday',
+  status: 'ready',
   due: dayOffset(0),
   repeat: 'daily',
 })

@@ -144,7 +144,7 @@ export interface NewTaskInput {
   subtasks?: string[] // 「## サブタスク」に入れるチェックリスト（Todoist のサブタスク）
 }
 
-export const STATUSES = ['icebox', 'backlog', 'dotoday', 'inprogress', 'done', 'dropped'] as const
+export const STATUSES = ['icebox', 'backlog', 'ready', 'inprogress', 'done', 'dropped'] as const
 
 // 優先度。P1 が最優先で P4 が最低。既定は「優先度なし」（null）で、UI にも表示しない（Todoist 準拠）
 export const PRIORITIES = ['P1', 'P2', 'P3', 'P4'] as const

@@ -165,7 +165,7 @@ export default function SyncModal({ onClose, onImported }: { onClose: () => void
               </table>
             )}
             <div className="form-actions">
-              <span className="form-hint">取り込むと Backlog 列に入ります（DoToday への配置は手動）</span>
+              <span className="form-hint">取り込むと Backlog 列に入ります（Ready への配置は手動）</span>
               <button className="btn btn-primary" onClick={run} disabled={running || selected.size === 0}>
                 {running ? '取込中…' : `選択した ${selected.size} 件を取り込む`}
               </button>

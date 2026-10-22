@@ -2,10 +2,10 @@
 // AI エージェントや人が web と同じ一覧をターミナルで見る／読むために使う。
 //
 // 使い方（リポジトリルートから）:
-//   npm run cli                     # ボード表示（IceBox/Backlog/DoToday/InProgress/Done）
+//   npm run cli                     # ボード表示（IceBox/Backlog/Ready/InProgress/Done）
 //   npm run cli -- --list           # フラットな一覧
 //   npm run cli -- --json           # JSON（他のツールが機械処理する用）
-//   npm run cli -- --project alpha --status dotoday,inprogress --priority P1,P2 --due 1week --tag waiting
+//   npm run cli -- --project alpha --status ready,inprogress --priority P1,P2 --due 1week --tag waiting
 //   npm run cli -- --all            # アーカイブ済みプロジェクトのタスクも含める（既定は隠す）
 //   npm run cli -- sync-todoist            # Todoist を取り込む（capture=inbox → Bismuth。BISMUTH_TODOIST=1 のときだけ）
 //   npm run cli -- sync-todoist --preview  # 取り込み予定だけ表示（書き込まない）
@@ -21,7 +21,7 @@ import { addComment, createTask, scanTasks, updateTask, type NewTaskInput, type 
 const COLUMNS: { key: string; label: string }[] = [
   { key: 'icebox', label: 'IceBox' },
   { key: 'backlog', label: 'Backlog' },
-  { key: 'dotoday', label: 'DoToday' },
+  { key: 'ready', label: 'Ready' },
   { key: 'inprogress', label: 'InProgress' },
   { key: 'done', label: 'Done' },
 ]

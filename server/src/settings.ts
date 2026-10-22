@@ -30,7 +30,7 @@ export const SORT_MODES = [
 export type SortMode = (typeof SORT_MODES)[number]
 
 // ボードのカラム（dropped はボードに出さないので含めない）
-export const BOARD_COLUMNS = ['icebox', 'backlog', 'dotoday', 'inprogress', 'done'] as const
+export const BOARD_COLUMNS = ['icebox', 'backlog', 'ready', 'inprogress', 'done'] as const
 
 export type ColumnSort = Record<string, SortMode>
 

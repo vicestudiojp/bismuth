@@ -65,8 +65,8 @@
   --success-text: #8fd8a0; /* done・保存通知 */
   --inprogress-bg: #1f3a52; /* ステータス inprogress */
   --inprogress-text: #8ec2ee;
-  --dotoday-bg: #4a3a1e; /* ステータス dotoday */
-  --warn-text: #eecf8e; /* dotoday・警告 */
+  --ready-bg: #4a3a1e; /* ステータス ready */
+  --warn-text: #eecf8e; /* ready・警告 */
   --warn-bg: #3a2f1e; /* フォームの警告 */
   --warnings-bg: #40331c; /* 取込警告の帯 */
   --notice-bg: #22301f; /* 保存通知 */
@@ -142,7 +142,7 @@
   --success-text: #237a3a;
   --inprogress-bg: #e0edf9;
   --inprogress-text: #1f5f9e;
-  --dotoday-bg: #fbf0d9;
+  --ready-bg: #fbf0d9;
   --warn-text: #8a5a00;
   --warn-bg: #fdf3df;
   --warnings-bg: #fbeecd;
@@ -474,8 +474,8 @@ body {
   color: var(--inprogress-text);
 }
 
-.status-dotoday {
-  background: var(--dotoday-bg);
+.status-ready {
+  background: var(--ready-bg);
   color: var(--warn-text);
 }
 

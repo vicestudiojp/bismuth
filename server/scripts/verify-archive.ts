@@ -60,8 +60,8 @@ const confProject = (id: string) => (conf().projects as Record<string, unknown>[
 
 addProject(vault, { id: 'alpha', description: 'サンプル案件A', todoistProject: 'Alpha' })
 addProject(vault, { id: 'beta', description: 'サンプル案件B' })
-const a1 = await createTask(vault, { title: 'アルファの作業', project: 'alpha', status: 'dotoday' })
-const b1 = await createTask(vault, { title: 'ベータの作業', project: 'beta', status: 'dotoday' })
+const a1 = await createTask(vault, { title: 'アルファの作業', project: 'alpha', status: 'ready' })
+const b1 = await createTask(vault, { title: 'ベータの作業', project: 'beta', status: 'ready' })
 
 // 1) 既定はアーカイブされていない。アーカイブしていない間は config に archived を書かない
 check('既定: 追加したプロジェクトは archived=false', listProjects(vault).every((p) => p.archived === false))

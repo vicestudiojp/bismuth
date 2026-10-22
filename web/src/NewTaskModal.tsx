@@ -2,7 +2,7 @@ import { useState } from 'react'
 import type { FormEvent } from 'react'
 import RepeatInput from './RepeatInput'
 
-const STATUSES = ['icebox', 'backlog', 'dotoday', 'inprogress', 'done', 'dropped']
+const STATUSES = ['icebox', 'backlog', 'ready', 'inprogress', 'done', 'dropped']
 const PRIORITIES = ['P1', 'P2', 'P3', 'P4']
 
 type Props = {

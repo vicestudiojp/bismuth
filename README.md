@@ -9,7 +9,7 @@ Obsidian の同期機能や Git で vault を共有すれば、複数のマシ�
 
 ## 主な機能
 
-- カンバン形式のボード（IceBox、Backlog、DoToday、In Progress、Done）とドラッグによるステータス変更
+- カンバン形式のボード（IceBox、Backlog、Ready、In Progress、Done）とドラッグによるステータス変更
 - カラムごとの並べ替え（優先度、期限、プロジェクト、完了日、タスク番号、更新日、手動）
 - タスクの起票と編集（タイトル、ステータス、優先度、期限、繰り返し、見積時間、タグ、概要、サブタスク）
 - 繰り返しタスク（毎日、毎週、隔週、毎月、曜日指定、N 日ごと）
@@ -101,7 +101,7 @@ completed:
 
 frontmatter の各項目は次のとおりです。
 
-- **status**：`icebox`、`backlog`、`dotoday`、`inprogress`、`done`、`dropped`（やらない）のいずれか
+- **status**：`icebox`、`backlog`、`ready`、`inprogress`、`done`、`dropped`（やらない）のいずれか
 - **priority**：`P1`（最優先）から `P4` まで。空欄は優先度なし
 - **due**：期限（`YYYY-MM-DD`）
 - **repeat**：繰り返しのルール。空欄は繰り返さない（後述の「繰り返しタスク」を参照）
@@ -164,7 +164,7 @@ bismuth-tasks cli                             # ボード表示
 bismuth-tasks cli --list                      # フラットな一覧
 bismuth-tasks cli --json                      # JSON 出力
 bismuth-tasks cli --list --all                # アーカイブ済みプロジェクトのタスクも含める
-bismuth-tasks cli --project alpha --status dotoday,inprogress --priority P1,P2 --due 1week
+bismuth-tasks cli --project alpha --status ready,inprogress --priority P1,P2 --due 1week
 bismuth-tasks cli create --project alpha --title "ログイン画面の不具合調査" --priority P2
 bismuth-tasks cli create --project alpha --title "日次レビュー" --due 2026-07-20 --repeat daily
 bismuth-tasks cli done alpha-12               # 完了にする（繰り返しタスクは次回の期限で backlog に戻る）

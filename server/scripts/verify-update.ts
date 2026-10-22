@@ -77,7 +77,7 @@ function check(name: string, cond: boolean, detail?: string) {
 const newTitle = '新タイトル 更新版'
 const result = await updateTask(vault, 1, {
   title: newTitle,
-  status: 'dotoday',
+  status: 'ready',
   due: '2026-07-15',
   estimate: 90,
   tags: ['testproj', 'task', 'edited'],
@@ -96,7 +96,7 @@ const note1 = fs.readFileSync(newPath, 'utf-8')
 check(
   'frontmatter: title/status/due/estimate/tags 更新',
   note1.includes(`title: ${newTitle}`) &&
-    note1.includes('status: dotoday') &&
+    note1.includes('status: ready') &&
     note1.includes('due: 2026-07-15') &&
     note1.includes('estimate: 90') &&
     note1.includes('tags: [testproj, task, edited]'),

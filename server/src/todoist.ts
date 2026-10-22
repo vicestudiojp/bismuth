@@ -201,7 +201,7 @@ export interface SyncResult {
   cleanup: CleanupItem[]
 }
 
-// プレビューのうち選択された分だけ取り込む（status は backlog 固定。DoToday への配置は手動）。
+// プレビューのうち選択された分だけ取り込む（status は backlog 固定。Ready への配置は手動）。
 // selectedIds を省略した場合はプレビュー全件（CLI 用）
 export async function runSync(vault: string, selectedIds?: string[]): Promise<SyncResult> {
   const preview = await previewSync(vault)

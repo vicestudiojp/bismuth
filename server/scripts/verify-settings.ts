@@ -128,27 +128,27 @@ check(
   Object.keys(so0).length === 5 && Object.values(so0).every((v) => v === 'priority'),
   JSON.stringify(so0),
 )
-saveSettings({ columnSort: { ...so0, dotoday: 'manual', done: 'completed-desc' } })
+saveSettings({ columnSort: { ...so0, ready: 'manual', done: 'completed-desc' } })
 const so1 = resolveSettings().columnSort
 check(
   'columnSort: 保存が反映される',
-  so1.dotoday === 'manual' && so1.done === 'completed-desc' && so1.icebox === 'priority',
+  so1.ready === 'manual' && so1.done === 'completed-desc' && so1.icebox === 'priority',
   JSON.stringify(so1),
 )
-fs.writeFileSync(localConfig, `${JSON.stringify({ columnSort: { backlog: 'ふぞろい', dotoday: 'due' } }, null, 2)}\n`, 'utf-8')
+fs.writeFileSync(localConfig, `${JSON.stringify({ columnSort: { backlog: 'ふぞろい', ready: 'due' } }, null, 2)}\n`, 'utf-8')
 const so2 = resolveSettings().columnSort
 check(
   'columnSort: 不正値・欠けたカラムは priority で埋める',
-  so2.backlog === 'priority' && so2.dotoday === 'due' && so2.done === 'priority',
+  so2.backlog === 'priority' && so2.ready === 'due' && so2.done === 'priority',
   JSON.stringify(so2),
 )
 
 // bismuth-122: タスク番号・更新日の並べ替えが有効値として保存・復元できる
-saveSettings({ columnSort: { ...so0, backlog: 'id-asc', dotoday: 'id-desc', inprogress: 'updated-asc', done: 'updated-desc' } })
+saveSettings({ columnSort: { ...so0, backlog: 'id-asc', ready: 'id-desc', inprogress: 'updated-asc', done: 'updated-desc' } })
 const so3 = resolveSettings().columnSort
 check(
   'columnSort: タスク番号・更新日の昇順/降順を保存できる（bismuth-122）',
-  so3.backlog === 'id-asc' && so3.dotoday === 'id-desc' && so3.inprogress === 'updated-asc' && so3.done === 'updated-desc' && so3.icebox === 'priority',
+  so3.backlog === 'id-asc' && so3.ready === 'id-desc' && so3.inprogress === 'updated-asc' && so3.done === 'updated-desc' && so3.icebox === 'priority',
   JSON.stringify(so3),
 )
 
