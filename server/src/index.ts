@@ -156,7 +156,7 @@ app.post('/api/projects', async (req, reply) => {
   }
 })
 
-// id は不変（ファイル名と置き場に使う）。概要と Todoist 名だけ更新できる
+// id は不変（ファイル名と置き場に使う）。概要・Todoist 名・アーカイブの有無（archived）だけ更新できる
 app.patch('/api/projects/:id', async (req, reply) => {
   const id = (req.params as { id: string }).id
   try {

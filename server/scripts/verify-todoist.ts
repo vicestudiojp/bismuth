@@ -3,7 +3,7 @@
 // 実行: npx tsx scripts/verify-todoist.ts
 //
 // 方針（F1 設計5章 ／ 2026-07-13 オーナー指示）:
-// - 対象は projects の todoistProject が設定されているプロジェクトだけ
+// - 対象は projects の todoistProject が設定されているプロジェクトだけ（アーカイブ済みは除く・bismuth-226）
 // - Todoist には一切書き込まない（このスクリプトも GET しか来ないことを確認する）
 // - 重複防止は frontmatter の todoist-id。既取込はスキップ
 // - 取込済みかつ Todoist 側で未完 → 掃除リスト（手で消すための一覧）
@@ -26,6 +26,7 @@ fs.writeFileSync(
         { id: 'beta', description: '', todoistProject: 'Beta' },
         { id: 'ghost', description: '', todoistProject: '存在しないプロジェクト' },
         { id: 'unmapped', description: '', todoistProject: '' }, // 対象外（Todoist 名なし）
+        { id: 'retired', description: '', todoistProject: '900_Learning', archived: true }, // 対象外（アーカイブ済み）
       ],
     },
     null,
@@ -117,6 +118,10 @@ check('プレビュー: サブタスクは単独タスクにしない', !preview
 check('プレビュー: サブタスクは親のチェックリストに入る', preview.imports.find((i) => i.title === 'サブタスクの親')?.subtasks.join(',') === '子その1,子その2')
 check('プレビュー: Todoist 名が見つからないプロジェクトを報告', preview.projects.find((p) => p.project === 'ghost')?.found === false)
 check('プレビュー: Todoist 名が未設定のプロジェクトは対象外', !preview.projects.some((p) => p.project === 'unmapped'))
+check(
+  'プレビュー: アーカイブ済みのプロジェクトは対象外（Todoist 名があっても取り込まない）',
+  !preview.projects.some((p) => p.project === 'retired') && !preview.imports.some((i) => i.todoistId === 't-9'),
+)
 check('プレビュー: ノートを書かない', (await scanTasks(vault)).length === 0)
 
 const item = preview.imports.find((i) => i.todoistId === 't-1')!

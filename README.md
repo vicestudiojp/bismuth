@@ -15,6 +15,7 @@ Obsidian の同期機能や Git で vault を共有すれば、複数のマシ�
 - 繰り返しタスク（毎日、毎週、隔週、毎月、曜日指定、N 日ごと）
 - タスクへのコメントと作業記録の追記
 - プロジェクト、優先度、タグ、期限による絞り込み
+- 終わったプロジェクトのアーカイブ（ノートは残したまま、ボードから隠す）
 - ターミナルから一覧の表示や起票、完了、コメントができる CLI
 - ダークテーマとライトテーマ
 
@@ -162,6 +163,7 @@ Obsidian で `status` を直接 `done` に書き換えた場合は、繰り返�
 bismuth-tasks cli                             # ボード表示
 bismuth-tasks cli --list                      # フラットな一覧
 bismuth-tasks cli --json                      # JSON 出力
+bismuth-tasks cli --list --all                # アーカイブ済みプロジェクトのタスクも含める
 bismuth-tasks cli --project alpha --status dotoday,inprogress --priority P1,P2 --due 1week
 bismuth-tasks cli create --project alpha --title "ログイン画面の不具合調査" --priority P2
 bismuth-tasks cli create --project alpha --title "日次レビュー" --due 2026-07-20 --repeat daily
@@ -172,6 +174,7 @@ bismuth-tasks cli --help
 ```
 
 タスクの指定は `alpha-12` と `12` のどちらの形でもできます。
+ボード表示と `--list` は、アーカイブ済みプロジェクトのタスクを既定で表示しません。`--json` は常に全件を出力します。
 
 ## 開発
 

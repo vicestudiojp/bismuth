@@ -3,7 +3,7 @@
 // 原則:
 // - Todoist には一切書き込まない。消し込みは手で行う（取込済みかつ Todoist 側で未完のものは
 //   「掃除リスト」として見せる）
-// - 対象は projects の todoistProject が設定されているプロジェクトだけ
+// - 対象は projects の todoistProject が設定されているプロジェクトだけ（アーカイブ済みは除く・bismuth-226）
 // - 重複防止は frontmatter の todoist-id。既に取り込んだタスクはスキップする
 // - 誤操作を防ぐため、プレビュー（取込予定の一覧）と実行を分ける
 import fs from 'node:fs'
@@ -128,9 +128,12 @@ export async function previewSync(vault: string): Promise<SyncPreview> {
     )
   }
 
-  const mapped = listProjects(vault).filter((p) => p.todoistProject)
+  // アーカイブ済みのプロジェクトには取り込まない（取り込んでもボードに出ないため）
+  const mapped = listProjects(vault).filter((p) => p.todoistProject && !p.archived)
   if (mapped.length === 0) {
-    throw new Error('Todoist プロジェクト名が設定されたプロジェクトがありません（プロジェクト画面で設定してください）')
+    throw new Error(
+      'Todoist プロジェクト名が設定されたプロジェクトがありません（プロジェクト画面で設定してください。アーカイブ済みは対象外）',
+    )
   }
 
   const todoistProjects = await paginate('/projects', token)

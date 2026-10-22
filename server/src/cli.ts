@@ -6,12 +6,14 @@
 //   npm run cli -- --list           # フラットな一覧
 //   npm run cli -- --json           # JSON（他のツールが機械処理する用）
 //   npm run cli -- --project alpha --status dotoday,inprogress --priority P1,P2 --due 1week --tag waiting
+//   npm run cli -- --all            # アーカイブ済みプロジェクトのタスクも含める（既定は隠す）
 //   npm run cli -- sync-todoist            # Todoist を取り込む（capture=inbox → Bismuth。BISMUTH_TODOIST=1 のときだけ）
 //   npm run cli -- sync-todoist --preview  # 取り込み予定だけ表示（書き込まない）
 //   npm run cli -- done bismuth-33 34      # タスクを完了にする（ID は project-N でも数字でも可）
 //   npm run cli -- create --project alpha --title "日次レビュー" --due 2026-07-20 --repeat daily   # 繰り返しタスクを起票
 //   npm run cli -- comment bismuth-33 "実施メモ" [--author 秘書]   # コメントを追記（書式は仕様どおり CLI が付ける）
 //   npm run cli -- tag bismuth-33 --add ai-done --remove ai        # タグを付け外しする（カンマ区切りで複数可）
+import { archivedProjectIds } from './projects.js'
 import { applyLayout, resolveSettings } from './settings.js'
 import { previewSync, runSync, todoistEnabled, TODOIST_DISABLED_MESSAGE } from './todoist.js'
 import { addComment, createTask, scanTasks, updateTask, type NewTaskInput, type TaskCard } from './vault.js'
@@ -188,6 +190,7 @@ async function main(): Promise<void> {
         '  --list          フラット一覧（dropped=やらない は --status dropped のときだけ出す）',
         '  --json          JSON 出力',
         '  --project <ids> / --status <s> / --priority <P1,none> / --due <1week> / --tag <t>（カンマ区切り）',
+        '  --all           アーカイブ済みプロジェクトのタスクもボード・一覧に含める（--json は常に全件）',
         '  create --project <id> --title "..." [--status --priority --due --repeat --tags --estimate --body]   タスクを新規作成',
         '                  --repeat: daily / weekly / biweekly / monthly / weekly:mon,thu / every:3d',
         '  done <id...>    タスクを完了にする（例: done alpha-12 13。複数まとめて可。繰り返しタスクは次回期限で backlog に戻る）',
@@ -381,9 +384,15 @@ async function main(): Promise<void> {
   }
 
   // dropped（やらない）は web のボードと同じく既定では出さない。--status で明示したときだけ出す（bismuth-179）。
+  // アーカイブ済みプロジェクトのタスクも web と同じく既定では出さず、--all で含める（bismuth-226）。
   // --json は機械処理用なので上で全件のまま返す
-  const shown = flags.status ? tasks : tasks.filter((t) => t.status !== 'dropped')
+  const archived = bools.has('all') ? new Set<string>() : archivedProjectIds(vault)
+  const unarchived = tasks.filter((t) => !archived.has(t.project))
+  const shown = flags.status ? unarchived : unarchived.filter((t) => t.status !== 'dropped')
   const header = `# Bismuth タスク  (${shown.length}${shown.length !== all.length ? ` / 全${all.length}` : ''}件)  ${today}`
+  // 隠したことに気づけるよう、除外した件数を末尾に添える
+  const hidden = tasks.length - unarchived.length
+  const footer = hidden > 0 ? `\n（アーカイブ済みプロジェクトの ${hidden} 件を除外。--all で表示）` : ''
   if (bools.has('list')) {
     console.log(`${header}\n`)
     console.log(shown.length ? renderList(shown, today) : '（該当なし）')
@@ -391,6 +400,7 @@ async function main(): Promise<void> {
     console.log(header)
     console.log(renderBoard(shown, today))
   }
+  if (footer) console.log(footer)
 }
 
 main().catch((err) => {

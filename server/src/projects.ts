@@ -3,6 +3,9 @@
 //
 // プロジェクト id はファイル名（<project>-<task-id> <title>.md）と置き場（_task/<project>/）に
 // 使う不変キー。半角英数・ハイフン・アンダースコアのみ（先頭は英数かアンダースコア）。
+//
+// アーカイブ（bismuth-226）は projects の archived: true だけで表す。ノートは _task/<id>/ に置いたまま動かさず、
+// web のボードと CLI のボード・一覧から隠すだけ（--json・番号引き・done・comment はこれまでどおり効く）。
 import fs from 'node:fs'
 import path from 'node:path'
 import { configPath, taskDir, trashDir } from './settings.js'
@@ -11,12 +14,14 @@ export interface Project {
   id: string
   description: string
   todoistProject: string // Todoist 側のプロジェクト名（取込の対応表。F1 設計5章）
+  archived: boolean // アーカイブ済み（bismuth-226）。一覧から隠すだけで、ノートは _task/<id>/ に置いたまま
 }
 
 export interface ProjectInput {
   id?: string
   description?: string | null
   todoistProject?: string | null
+  archived?: boolean
 }
 
 const ID_RE = /^[A-Za-z0-9_][A-Za-z0-9_-]*$/
@@ -75,6 +80,7 @@ function toProject(v: unknown): Project | null {
     id,
     description: String(o.description ?? '').trim(),
     todoistProject: String(o.todoistProject ?? '').trim(),
+    archived: o.archived === true,
   }
 }
 
@@ -88,15 +94,18 @@ export function listProjects(vault: string): Project[] {
   if (legacy && typeof legacy === 'object') {
     for (const [id, todoist] of Object.entries(legacy as Record<string, unknown>)) {
       if (!ID_RE.test(id) || projects.some((p) => p.id.toLowerCase() === id.toLowerCase())) continue
-      projects.push({ id, description: '', todoistProject: String(todoist ?? '').trim() })
+      projects.push({ id, description: '', todoistProject: String(todoist ?? '').trim(), archived: false })
     }
   }
   return projects.sort((a, b) => a.id.localeCompare(b.id))
 }
 
+// archived は true のときだけ書く（アーカイブしていないプロジェクトの記述を増やさない）
 function saveProjects(vault: string, projects: Project[]): void {
   const conf = readConfig(vault)
-  conf.projects = projects.sort((a, b) => a.id.localeCompare(b.id))
+  conf.projects = projects
+    .sort((a, b) => a.id.localeCompare(b.id))
+    .map(({ archived, ...rest }) => (archived ? { ...rest, archived } : rest))
   delete conf.todoistProjectMap // projects に統合したので落とす（読み込み時に取り込み済み）
   writeConfig(vault, conf)
 }
@@ -121,18 +130,23 @@ export function addProject(vault: string, input: ProjectInput): Project {
     id,
     description: (input.description ?? '').trim(),
     todoistProject: (input.todoistProject ?? '').trim(),
+    archived: false,
   }
   saveProjects(vault, [...projects, project])
   return project
 }
 
-// id は不変（ファイル名と置き場に使うため）。概要と Todoist 名だけ更新できる
+// id は不変（ファイル名と置き場に使うため）。概要・Todoist 名・アーカイブの有無だけ更新できる
 export function updateProject(vault: string, id: string, input: ProjectInput): Project | null {
+  if (input.archived !== undefined && typeof input.archived !== 'boolean') {
+    throw new Error('archived は true か false で指定してください')
+  }
   const projects = listProjects(vault)
   const target = projects.find((p) => p.id === id)
   if (!target) return null
   if (input.description !== undefined) target.description = (input.description ?? '').trim()
   if (input.todoistProject !== undefined) target.todoistProject = (input.todoistProject ?? '').trim()
+  if (input.archived !== undefined) target.archived = input.archived
   saveProjects(vault, projects)
   return target
 }
@@ -170,6 +184,11 @@ export function deleteProject(vault: string, id: string): DeleteProjectResult | 
   return { id, from: hasFolder ? dir : '', to }
 }
 
+// アーカイブ済みプロジェクトの id（一覧から隠す対象）。タスクの絞り込みに使う
+export function archivedProjectIds(vault: string): Set<string> {
+  return new Set(listProjects(vault).filter((p) => p.archived).map((p) => p.id))
+}
+
 // 未登録のプロジェクトを登録する（既にあれば何もしない）。
 // vault のノートが正本なので、アプリを通さず作られたタスクのプロジェクトも取りこぼさない
 export function ensureProjects(vault: string, ids: string[]): Project[] {
@@ -180,7 +199,7 @@ export function ensureProjects(vault: string, ids: string[]): Project[] {
     const id = (raw ?? '').trim()
     if (!ID_RE.test(id) || known.has(id.toLowerCase())) continue
     known.add(id.toLowerCase())
-    added.push({ id, description: '', todoistProject: '' })
+    added.push({ id, description: '', todoistProject: '', archived: false })
   }
   if (added.length > 0) saveProjects(vault, [...projects, ...added])
   return added

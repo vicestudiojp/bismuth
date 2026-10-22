@@ -189,6 +189,11 @@ export default function App() {
   const [dropPos, setDropPos] = useState<{ col: string; index: number } | null>(null)
   const today = todayString()
 
+  // アーカイブ済みプロジェクトのタスクはボード・フィルタの選択肢に出さない（bismuth-226）。
+  // tasks 自体は削らないので、番号でタスクを開く（No）からはこれまでどおり開ける
+  const archivedProjects = new Set(projects.filter((p) => p.archived).map((p) => p.id))
+  const visibleTasks = tasks.filter((t) => !archivedProjects.has(t.project))
+
   // 完了から N 日経過した done タスクはボードに出さない（bismuth-45）。ノートの実体はそのまま・
   // tasks 自体も削らないので、番号でタスクを開く（No）などの検索はこれまで通り一致する
   function isHiddenDone(t: Task): boolean {
@@ -280,7 +285,7 @@ export default function App() {
   async function dropManual(taskId: number, col: string, index: number) {
     const task = tasks.find((t) => t.taskId === taskId)
     if (!task) return
-    const rendered = tasks
+    const rendered = visibleTasks
       .filter((t) => matchesFilter(t, filter) && t.status === col)
       .sort(byManualOrder)
     const selfIdx = rendered.findIndex((t) => t.taskId === taskId)
@@ -335,12 +340,13 @@ export default function App() {
   }
 
   // フィルタ適用後のタスクと、プルダウンの選択肢
-  const filtered = tasks.filter((t) => matchesFilter(t, filter))
-  const allProjects = Array.from(new Set([...projects.map((p) => p.id), ...tasks.map((t) => t.project)])).sort((a, b) =>
+  const filtered = visibleTasks.filter((t) => matchesFilter(t, filter))
+  const activeProjects = projects.filter((p) => !p.archived).map((p) => p.id)
+  const allProjects = Array.from(new Set([...activeProjects, ...visibleTasks.map((t) => t.project)])).sort((a, b) =>
     a.localeCompare(b),
   )
   const projectOptions = allProjects.map((id) => ({ value: id, label: id }))
-  const tagOptions = Array.from(new Set(tasks.flatMap((t) => t.tags)))
+  const tagOptions = Array.from(new Set(visibleTasks.flatMap((t) => t.tags)))
     .sort((a, b) => a.localeCompare(b))
     .map((t) => ({ value: t, label: t }))
 
@@ -558,7 +564,7 @@ export default function App() {
       )}
       {creating && (
         <NewTaskModal
-          projects={projects.map((p) => p.id)}
+          projects={activeProjects}
           onClose={() => setCreating(false)}
           onCreated={(taskId) => {
             setCreating(false)
@@ -596,7 +602,7 @@ export default function App() {
           projectOptions={projectOptions}
           tagOptions={tagOptions}
           matchedCount={filtered.length}
-          totalCount={tasks.length}
+          totalCount={visibleTasks.length}
           onClose={() => setFilterOpen(false)}
         />
       )}

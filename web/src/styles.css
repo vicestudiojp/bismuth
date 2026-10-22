@@ -1101,6 +1101,21 @@ body {
   margin-left: 6px;
 }
 
+/* アーカイブ済みのプロジェクト（bismuth-226）。行の文字を沈め、id の横に印を付ける */
+.proj-archived td {
+  color: var(--text-dim);
+}
+
+.proj-badge {
+  margin-left: 6px;
+  padding: 0 5px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  font-size: 10.5px;
+  font-family: inherit;
+  color: var(--text-faint);
+}
+
 .muted {
   color: var(--text-dim);
 }

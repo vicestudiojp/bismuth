@@ -5,9 +5,11 @@ export type Project = {
   id: string
   description: string
   todoistProject: string
+  archived: boolean // アーカイブ済み＝ボード・新規タスクのプロジェクト欄から隠す（bismuth-226）
 }
 
 // プロジェクトの追加・編集。id は不変（ファイル名と置き場に使うため）で、概要と Todoist 名だけ後から直せる。
+// アーカイブは一覧から隠すだけで、ノートは動かさない（解除すれば元どおり出る）。アーカイブ済みは表の末尾に並べる
 // Todoist 取込が無効（サーバの BISMUTH_TODOIST 未設定）なら Todoist 名の欄は出さない（保存済みの値は温存される）
 export default function ProjectsModal({
   todoist,
@@ -34,6 +36,8 @@ export default function ProjectsModal({
 
   const [deleting, setDeleting] = useState<string | null>(null)
   const [deleteError, setDeleteError] = useState<string | null>(null)
+
+  const [archiveError, setArchiveError] = useState<string | null>(null)
 
   function load() {
     fetch('/api/projects')
@@ -103,6 +107,24 @@ export default function ProjectsModal({
     }
   }
 
+  // アーカイブ／解除。戻せる操作なので確認は挟まない
+  async function setArchived(projectId: string, archived: boolean) {
+    setArchiveError(null)
+    try {
+      const res = await fetch(`/api/projects/${encodeURIComponent(projectId)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ archived }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`)
+      load()
+      onChanged()
+    } catch (err) {
+      setArchiveError(err instanceof Error ? err.message : String(err))
+    }
+  }
+
   // 削除＝タスクフォルダ（_task/<id>/）を丸ごとゴミ箱（_task/.trash/）へ移動する。実体は消さない
   async function doDelete(projectId: string) {
     setDeleteError(null)
@@ -117,6 +139,9 @@ export default function ProjectsModal({
       setDeleteError(err instanceof Error ? err.message : String(err))
     }
   }
+
+  // アーカイブ済みは末尾へ（それぞれの中はサーバが返す id 順のまま）
+  const rows = [...projects.filter((p) => !p.archived), ...projects.filter((p) => p.archived)]
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -139,7 +164,7 @@ export default function ProjectsModal({
               </tr>
             </thead>
             <tbody>
-              {projects.map((p) =>
+              {rows.map((p) =>
                 editing === p.id ? (
                   <tr key={p.id}>
                     <td className="mono">{p.id}</td>
@@ -161,8 +186,11 @@ export default function ProjectsModal({
                     </td>
                   </tr>
                 ) : (
-                  <tr key={p.id}>
-                    <td className="mono">{p.id}</td>
+                  <tr key={p.id} className={p.archived ? 'proj-archived' : undefined}>
+                    <td className="mono">
+                      {p.id}
+                      {p.archived && <span className="proj-badge">アーカイブ済み</span>}
+                    </td>
                     <td>{p.description || <span className="muted">—</span>}</td>
                     {todoist && <td>{p.todoistProject || <span className="muted">—</span>}</td>}
                     <td className="proj-actions">
@@ -180,6 +208,9 @@ export default function ProjectsModal({
                         <>
                           <button className="btn btn-small" onClick={() => startEdit(p)}>
                             編集
+                          </button>
+                          <button className="btn btn-small" onClick={() => setArchived(p.id, !p.archived)}>
+                            {p.archived ? 'アーカイブ解除' : 'アーカイブ'}
                           </button>
                           <button
                             className="btn btn-small btn-danger"
@@ -201,12 +232,19 @@ export default function ProjectsModal({
         )}
         {projects.length > 0 && (
           <p className="form-hint">
+            アーカイブすると、そのプロジェクトのタスクをボードと新規タスクのプロジェクト欄から隠します。ノートはタスクフォルダ（
+            <span className="mono">_task/&lt;id&gt;/</span>）に置いたままで、「番号でタスクを開く」からは開けます。解除すれば元どおり表示します。
+          </p>
+        )}
+        {projects.length > 0 && (
+          <p className="form-hint">
             削除すると、タスクフォルダ（<span className="mono">_task/&lt;id&gt;/</span>）を丸ごとゴミ箱（
             <span className="mono">_task/.trash/</span>）へ移動します。実体は消さず、同名が既にあれば「
             <span className="mono">&lt;id&gt; (2)</span>」のように連番で退避します。
           </p>
         )}
         {editError && <p className="form-error">{editError}</p>}
+        {archiveError && <p className="form-error">{archiveError}</p>}
         {deleteError && <p className="form-error">{deleteError}</p>}
 
         <h3 className="section-head">プロジェクトを追加</h3>
