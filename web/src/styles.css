@@ -599,6 +599,97 @@ body {
   font-weight: 600;
 }
 
+/* タスクの本文には出ない要素（リンク先のドキュメントで使われる） */
+.markdown h1 {
+  font-size: 17px;
+  margin: 4px 0 10px;
+  line-height: 1.4;
+}
+
+.markdown h4 {
+  font-size: 12.5px;
+  margin: 10px 0 4px;
+  color: var(--text-subheading);
+}
+
+.markdown pre {
+  background: var(--bg-input);
+  border-radius: 6px;
+  padding: 10px 12px;
+  overflow-x: auto;
+}
+
+.markdown pre code {
+  padding: 0;
+  background: none;
+}
+
+.markdown blockquote {
+  margin: 8px 0;
+  padding: 2px 12px;
+  border-left: 3px solid var(--border-btn);
+  color: var(--text-muted);
+}
+
+.markdown hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 14px 0;
+}
+
+.markdown img,
+.markdown .mermaid svg {
+  max-width: 100%;
+  height: auto;
+}
+
+.markdown .mermaid {
+  margin: 8px 0;
+  text-align: center;
+}
+
+/* ---- リンク先のドキュメント表示（タスク詳細モーダルの中） ---- */
+
+.doc-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.doc-obsidian {
+  margin-left: auto;
+  color: var(--text-2);
+  text-decoration: none;
+}
+
+.doc-path {
+  margin: 10px 0 0;
+  color: var(--text-faint);
+}
+
+.doc-body {
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+
+.doc-image {
+  display: block;
+  max-width: 100%;
+  margin-top: 16px;
+}
+
+.doc-text {
+  margin-top: 16px;
+  background: var(--bg-input);
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 12px;
+  overflow-x: auto;
+  white-space: pre;
+}
+
 /* ---- ボタン・フォーム ---- */
 
 .btn {

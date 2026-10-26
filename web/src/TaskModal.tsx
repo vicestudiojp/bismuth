@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
+import DocView from './DocView'
 import RepeatInput, { repeatLabel } from './RepeatInput'
+import VaultMarkdown, { type DocLink } from './VaultMarkdown'
 
 const STATUSES = ['icebox', 'backlog', 'ready', 'inprogress', 'done', 'dropped']
 const PRIORITIES = ['P1', 'P2', 'P3', 'P4']
@@ -85,15 +85,6 @@ function formatHours(min: number): string {
   return `${(min / 60).toFixed(2).replace(/\.?0+$/, '')}h`
 }
 
-// [[wikiリンク]] を obsidian:// リンクに変換する（Obsidian はファイル名で vault 全体を解決する）
-function wikiToObsidian(body: string, vaultName: string): string {
-  return body.replace(
-    /\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g,
-    (_m, target: string, alias?: string) =>
-      `[${alias ?? target}](obsidian://open?vault=${encodeURIComponent(vaultName)}&file=${encodeURIComponent(target)})`,
-  )
-}
-
 export default function TaskModal({
   taskId,
   onClose,
@@ -137,10 +128,17 @@ export default function TaskModal({
   const [wsSaving, setWsSaving] = useState(false)
   const [wsError, setWsError] = useState<string | null>(null)
 
+  // リンクから開いたドキュメントの履歴（空ならタスクを表示する）。戻ったときはタスクのスクロール位置を復元する
+  const [docStack, setDocStack] = useState<DocLink[]>([])
+  const modalRef = useRef<HTMLDivElement>(null)
+  const taskScrollTop = useRef(0)
+
   useEffect(() => {
     setDetail(null)
     setError(false)
     setMode('view')
+    setDocStack([])
+    taskScrollTop.current = 0
     setNotice(null)
     setComment('')
     setCommentError(null)
@@ -161,6 +159,15 @@ export default function TaskModal({
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
+
+  useLayoutEffect(() => {
+    if (modalRef.current) modalRef.current.scrollTop = docStack.length === 0 ? taskScrollTop.current : 0
+  }, [docStack])
+
+  function openDoc(link: DocLink) {
+    if (docStack.length === 0) taskScrollTop.current = modalRef.current?.scrollTop ?? 0
+    setDocStack((s) => [...s, link])
+  }
 
   function startEdit() {
     if (!detail) return
@@ -310,13 +317,31 @@ export default function TaskModal({
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+      <div ref={modalRef} className="modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
         <button className="modal-close" onClick={onClose} aria-label="閉じる">
           ×
         </button>
         {error && <p className="modal-error">読み込みに失敗しました</p>}
         {!error && !detail && <p className="modal-loading">…</p>}
-        {detail && mode === 'view' && (
+        {detail && mode === 'view' && docStack.length > 0 && (
+          <>
+            <div className="modal-head">
+              <span className="card-id">
+                {detail.task.project}-{detail.task.taskId}
+              </span>
+              <span className="status-chip">ドキュメント</span>
+            </div>
+            <DocView
+              link={docStack[docStack.length - 1]}
+              vaultName={detail.vaultName}
+              backLabel={docStack.length > 1 ? '戻る' : 'タスクに戻る'}
+              onBack={() => setDocStack((s) => s.slice(0, -1))}
+              onBackToTask={docStack.length > 1 ? () => setDocStack([]) : undefined}
+              onOpenDoc={openDoc}
+            />
+          </>
+        )}
+        {detail && mode === 'view' && docStack.length === 0 && (
           <>
             <div className="modal-head">
               <span className="card-id">
@@ -395,12 +420,11 @@ export default function TaskModal({
               </div>
             </dl>
             <div className="modal-body markdown">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                {wikiToObsidian(
-                  stripSection(stripSection(stripLeadingH1(detail.body), 'コメント'), '作業記録'),
-                  detail.vaultName,
-                )}
-              </ReactMarkdown>
+              <VaultMarkdown
+                text={stripSection(stripSection(stripLeadingH1(detail.body), 'コメント'), '作業記録')}
+                from={detail.task.file}
+                onOpenDoc={openDoc}
+              />
             </div>
             <section className="work-sessions">
               <h3 className="section-head">
@@ -486,9 +510,7 @@ export default function TaskModal({
                     <span className="comment-at">{c.at}</span>
                   </header>
                   <div className="comment-body markdown">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                      {wikiToObsidian(c.body, detail.vaultName)}
-                    </ReactMarkdown>
+                    <VaultMarkdown text={c.body} from={detail.task.file} onOpenDoc={openDoc} />
                   </div>
                 </article>
               ))}

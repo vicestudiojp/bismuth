@@ -4,6 +4,7 @@ import { execFile } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { imageType, locateDoc, readDoc, type DocQuery } from './docs.js'
 import { addProject, deleteProject, listProjects, updateProject, type ProjectInput } from './projects.js'
 import { previewSync, runSync, todoistEnabled, TODOIST_DISABLED_MESSAGE } from './todoist.js'
 import { applyLayout, DEFAULTS, resolveSettings, saveSettings, userConfigFile, type Settings } from './settings.js'
@@ -223,6 +224,38 @@ app.post('/api/tasks/:id/work-sessions', async (req, reply) => {
     const detail = await addWorkSession(vault, id, req.body as NewWorkSessionInput)
     if (!detail) return reply.code(404).send({ error: 'task not found' })
     return reply.code(201).send(detail)
+  } catch (err) {
+    return reply.code(400).send({ error: err instanceof Error ? err.message : String(err) })
+  }
+})
+
+// タスクノートからリンクされたドキュメントの閲覧（読み取り専用）。
+// target（[[リンク]] の中身）を from（リンク元ノート）を基準に vault 全体から解決する
+app.get('/api/docs', async (req, reply) => {
+  const query = req.query as DocQuery
+  try {
+    const doc = await readDoc(vault, query)
+    if (!doc) return reply.code(404).send({ error: `リンク先が見つかりません: ${query.target}` })
+    return doc
+  } catch (err) {
+    return reply.code(400).send({ error: err instanceof Error ? err.message : String(err) })
+  }
+})
+
+// ドキュメント中の画像（![[図.png]] など）の実体。画像以外は配信しない
+app.get('/api/docs/raw', async (req, reply) => {
+  const query = req.query as DocQuery
+  try {
+    const rel = await locateDoc(vault, query)
+    if (!rel) return reply.code(404).send({ error: `リンク先が見つかりません: ${query.target}` })
+    const type = imageType(rel)
+    if (!type) return reply.code(415).send({ error: `画像ではありません: ${rel}` })
+    // SVG を直接開かれてもスクリプトを動かさない
+    return reply
+      .type(type)
+      .header('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'")
+      .header('X-Content-Type-Options', 'nosniff')
+      .send(fs.createReadStream(path.join(vault, rel)))
   } catch (err) {
     return reply.code(400).send({ error: err instanceof Error ? err.message : String(err) })
   }
