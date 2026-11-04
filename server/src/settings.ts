@@ -38,6 +38,10 @@ export type ColumnSort = Record<string, SortMode>
 export const THEMES = ['dark', 'light', 'system'] as const
 export type Theme = (typeof THEMES)[number]
 
+// Todoist 同期後に、取り込んだ Todoist のタスクをどうするか（bismuth-206）。none = 何もしない
+export const TODOIST_AFTER_SYNC = ['none', 'complete', 'delete'] as const
+export type TodoistAfterSync = (typeof TODOIST_AFTER_SYNC)[number]
+
 export interface Settings {
   root: string // ルートフォルダ（vault のルート・絶対パス）
   taskFolder: string // タスクフォルダ（root からの相対）
@@ -47,6 +51,7 @@ export interface Settings {
   columnSort: ColumnSort // カラムごとの並べ替え（キー = カラムの status）
   doneHideAfterDays: number | null // 完了から N 日経過した done タスクをボードで非表示にする（null = 非表示にしない・bismuth-45）
   theme: Theme // 画面テーマ（bismuth-174）
+  todoistAfterSync: TodoistAfterSync // Todoist 同期後の処理（bismuth-206）
 }
 
 export const DEFAULTS: Settings = {
@@ -58,6 +63,7 @@ export const DEFAULTS: Settings = {
   columnSort: Object.fromEntries(BOARD_COLUMNS.map((c) => [c, 'priority'])) as ColumnSort,
   doneHideAfterDays: null,
   theme: 'dark',
+  todoistAfterSync: 'none',
 }
 
 // ユーザー設定ファイル（マシンごと・同期しない）の場所。環境変数 BISMUTH_CONFIG で指定し、
@@ -124,6 +130,11 @@ function normalizeTheme(v: unknown): Theme {
   return (THEMES as readonly string[]).includes(String(v)) ? (v as Theme) : DEFAULTS.theme
 }
 
+// Todoist 同期後の処理を正規化（削除を含むので、不正な値・未設定は安全側の「何もしない」に倒す）
+function normalizeTodoistAfterSync(v: unknown): TodoistAfterSync {
+  return (TODOIST_AFTER_SYNC as readonly string[]).includes(String(v)) ? (v as TodoistAfterSync) : DEFAULTS.todoistAfterSync
+}
+
 // ローカル設定ファイルの生の中身（未知キーは温存する）
 function readLocal(): Record<string, unknown> {
   try {
@@ -155,6 +166,7 @@ export function resolveSettings(): Settings {
     columnSort: normalizeColumnSort(conf.columnSort),
     doneHideAfterDays: normalizeDoneHideAfterDays(conf.doneHideAfterDays),
     theme: normalizeTheme(conf.theme),
+    todoistAfterSync: normalizeTodoistAfterSync(conf.todoistAfterSync),
   }
 }
 
@@ -177,6 +189,7 @@ export function saveSettings(input: Partial<Settings>): Settings {
   if (input.columnSort !== undefined) conf.columnSort = normalizeColumnSort(input.columnSort)
   if (input.doneHideAfterDays !== undefined) conf.doneHideAfterDays = normalizeDoneHideAfterDays(input.doneHideAfterDays)
   if (input.theme !== undefined) conf.theme = normalizeTheme(input.theme)
+  if (input.todoistAfterSync !== undefined) conf.todoistAfterSync = normalizeTodoistAfterSync(input.todoistAfterSync)
   const file = userConfigPath()
   fs.mkdirSync(path.dirname(file), { recursive: true })
   fs.writeFileSync(file, `${JSON.stringify(conf, null, 2)}\n`, 'utf-8')

@@ -14,6 +14,7 @@ export interface Project {
   id: string
   description: string
   todoistProject: string // Todoist 側のプロジェクト名（取込の対応表。F1 設計5章）
+  todoistTag: string // Todoist 側のタグ（ラベル）名。1つだけ。これが付いたタスクも取り込む（bismuth-206）
   archived: boolean // アーカイブ済み（bismuth-226）。一覧から隠すだけで、ノートは _task/<id>/ に置いたまま
 }
 
@@ -21,6 +22,7 @@ export interface ProjectInput {
   id?: string
   description?: string | null
   todoistProject?: string | null
+  todoistTag?: string | null
   archived?: boolean
 }
 
@@ -80,6 +82,7 @@ function toProject(v: unknown): Project | null {
     id,
     description: String(o.description ?? '').trim(),
     todoistProject: String(o.todoistProject ?? '').trim(),
+    todoistTag: String(o.todoistTag ?? '').trim(),
     archived: o.archived === true,
   }
 }
@@ -94,18 +97,22 @@ export function listProjects(vault: string): Project[] {
   if (legacy && typeof legacy === 'object') {
     for (const [id, todoist] of Object.entries(legacy as Record<string, unknown>)) {
       if (!ID_RE.test(id) || projects.some((p) => p.id.toLowerCase() === id.toLowerCase())) continue
-      projects.push({ id, description: '', todoistProject: String(todoist ?? '').trim(), archived: false })
+      projects.push({ id, description: '', todoistProject: String(todoist ?? '').trim(), todoistTag: '', archived: false })
     }
   }
   return projects.sort((a, b) => a.id.localeCompare(b.id))
 }
 
-// archived は true のときだけ書く（アーカイブしていないプロジェクトの記述を増やさない）
+// todoistTag と archived は値があるときだけ書く（使っていないプロジェクトの記述を増やさない）
 function saveProjects(vault: string, projects: Project[]): void {
   const conf = readConfig(vault)
   conf.projects = projects
     .sort((a, b) => a.id.localeCompare(b.id))
-    .map(({ archived, ...rest }) => (archived ? { ...rest, archived } : rest))
+    .map(({ todoistTag, archived, ...rest }) => ({
+      ...rest,
+      ...(todoistTag ? { todoistTag } : {}),
+      ...(archived ? { archived } : {}),
+    }))
   delete conf.todoistProjectMap // projects に統合したので落とす（読み込み時に取り込み済み）
   writeConfig(vault, conf)
 }
@@ -130,13 +137,14 @@ export function addProject(vault: string, input: ProjectInput): Project {
     id,
     description: (input.description ?? '').trim(),
     todoistProject: (input.todoistProject ?? '').trim(),
+    todoistTag: (input.todoistTag ?? '').trim(),
     archived: false,
   }
   saveProjects(vault, [...projects, project])
   return project
 }
 
-// id は不変（ファイル名と置き場に使うため）。概要・Todoist 名・アーカイブの有無だけ更新できる
+// id は不変（ファイル名と置き場に使うため）。概要・Todoist 名・Todoist タグ・アーカイブの有無だけ更新できる
 export function updateProject(vault: string, id: string, input: ProjectInput): Project | null {
   if (input.archived !== undefined && typeof input.archived !== 'boolean') {
     throw new Error('archived は true か false で指定してください')
@@ -146,6 +154,7 @@ export function updateProject(vault: string, id: string, input: ProjectInput): P
   if (!target) return null
   if (input.description !== undefined) target.description = (input.description ?? '').trim()
   if (input.todoistProject !== undefined) target.todoistProject = (input.todoistProject ?? '').trim()
+  if (input.todoistTag !== undefined) target.todoistTag = (input.todoistTag ?? '').trim()
   if (input.archived !== undefined) target.archived = input.archived
   saveProjects(vault, projects)
   return target
@@ -199,7 +208,7 @@ export function ensureProjects(vault: string, ids: string[]): Project[] {
     const id = (raw ?? '').trim()
     if (!ID_RE.test(id) || known.has(id.toLowerCase())) continue
     known.add(id.toLowerCase())
-    added.push({ id, description: '', todoistProject: '', archived: false })
+    added.push({ id, description: '', todoistProject: '', todoistTag: '', archived: false })
   }
   if (added.length > 0) saveProjects(vault, [...projects, ...added])
   return added

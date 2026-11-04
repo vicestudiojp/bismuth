@@ -608,6 +608,7 @@ export default function App() {
       )}
       {settingsOpen && (
         <SettingsModal
+          todoist={todoistEnabled}
           onClose={() => setSettingsOpen(false)}
           onSaved={() => {
             loadTasks()

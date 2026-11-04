@@ -1,16 +1,87 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 
 export type Project = {
   id: string
   description: string
   todoistProject: string
+  todoistTag: string // Todoist のタグ（ラベル）名。1つだけ（bismuth-206）
   archived: boolean // アーカイブ済み＝ボード・新規タスクのプロジェクト欄から隠す（bismuth-226）
 }
 
-// プロジェクトの追加・編集。id は不変（ファイル名と置き場に使うため）で、概要と Todoist 名だけ後から直せる。
+// 行の操作（編集・アーカイブ・削除）をまとめた「…」メニュー。外側のクリックと Esc で閉じる
+function RowMenu({
+  label,
+  archived,
+  onEdit,
+  onToggleArchive,
+  onDelete,
+}: {
+  label: string
+  archived: boolean
+  onEdit: () => void
+  onToggleArchive: () => void
+  onDelete: () => void
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const onDown = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    // Esc ではメニューだけを閉じる（モーダルを閉じる window のリスナーまで届かせない）
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      e.stopPropagation()
+      setOpen(false)
+    }
+    document.addEventListener('mousedown', onDown)
+    window.addEventListener('keydown', onKey, true)
+    return () => {
+      document.removeEventListener('mousedown', onDown)
+      window.removeEventListener('keydown', onKey, true)
+    }
+  }, [open])
+
+  function choose(action: () => void) {
+    setOpen(false)
+    action()
+  }
+
+  return (
+    <div className="row-menu" ref={ref}>
+      <button
+        type="button"
+        className="btn btn-small"
+        aria-label={label}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+      >
+        …
+      </button>
+      {open && (
+        <div className="row-menu-panel" role="menu">
+          <button type="button" role="menuitem" className="row-menu-item" onClick={() => choose(onEdit)}>
+            編集
+          </button>
+          <button type="button" role="menuitem" className="row-menu-item" onClick={() => choose(onToggleArchive)}>
+            {archived ? 'アーカイブ解除' : 'アーカイブ'}
+          </button>
+          <button type="button" role="menuitem" className="row-menu-item row-menu-danger" onClick={() => choose(onDelete)}>
+            削除
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// プロジェクトの追加・編集。id は不変（ファイル名と置き場に使うため）で、概要と Todoist 名・タグだけ後から直せる。
 // アーカイブは一覧から隠すだけで、ノートは動かさない（解除すれば元どおり出る）。アーカイブ済みは表の末尾に並べる
-// Todoist 取込が無効（サーバの BISMUTH_TODOIST 未設定）なら Todoist 名の欄は出さない（保存済みの値は温存される）
+// Todoist 取込が無効（サーバの BISMUTH_TODOIST 未設定）なら Todoist 名・タグの欄は出さない（保存済みの値は温存される）
 export default function ProjectsModal({
   todoist,
   onClose,
@@ -26,12 +97,14 @@ export default function ProjectsModal({
   const [id, setId] = useState('')
   const [description, setDescription] = useState('')
   const [todoistProject, setTodoistProject] = useState('')
+  const [todoistTag, setTodoistTag] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const [editing, setEditing] = useState<string | null>(null)
   const [editDesc, setEditDesc] = useState('')
   const [editTodoist, setEditTodoist] = useState('')
+  const [editTag, setEditTag] = useState('')
   const [editError, setEditError] = useState<string | null>(null)
 
   const [deleting, setDeleting] = useState<string | null>(null)
@@ -66,13 +139,14 @@ export default function ProjectsModal({
       const res = await fetch('/api/projects', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: id.trim(), description, todoistProject }),
+        body: JSON.stringify({ id: id.trim(), description, todoistProject, todoistTag }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`)
       setId('')
       setDescription('')
       setTodoistProject('')
+      setTodoistTag('')
       load()
       onChanged()
     } catch (err) {
@@ -86,6 +160,7 @@ export default function ProjectsModal({
     setEditing(p.id)
     setEditDesc(p.description)
     setEditTodoist(p.todoistProject)
+    setEditTag(p.todoistTag)
     setEditError(null)
   }
 
@@ -95,7 +170,7 @@ export default function ProjectsModal({
       const res = await fetch(`/api/projects/${encodeURIComponent(projectId)}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ description: editDesc, todoistProject: editTodoist }),
+        body: JSON.stringify({ description: editDesc, todoistProject: editTodoist, todoistTag: editTag }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`)
@@ -160,6 +235,7 @@ export default function ProjectsModal({
                 <th>id</th>
                 <th>概要</th>
                 {todoist && <th>Todoist プロジェクト名</th>}
+                {todoist && <th>Todoist タグ</th>}
                 <th />
               </tr>
             </thead>
@@ -174,6 +250,11 @@ export default function ProjectsModal({
                     {todoist && (
                       <td>
                         <input value={editTodoist} onChange={(e) => setEditTodoist(e.target.value)} />
+                      </td>
+                    )}
+                    {todoist && (
+                      <td>
+                        <input value={editTag} onChange={(e) => setEditTag(e.target.value)} />
                       </td>
                     )}
                     <td className="proj-actions">
@@ -193,6 +274,7 @@ export default function ProjectsModal({
                     </td>
                     <td>{p.description || <span className="muted">—</span>}</td>
                     {todoist && <td>{p.todoistProject || <span className="muted">—</span>}</td>}
+                    {todoist && <td>{p.todoistTag || <span className="muted">—</span>}</td>}
                     <td className="proj-actions">
                       {deleting === p.id ? (
                         <>
@@ -205,23 +287,16 @@ export default function ProjectsModal({
                           </button>
                         </>
                       ) : (
-                        <>
-                          <button className="btn btn-small" onClick={() => startEdit(p)}>
-                            編集
-                          </button>
-                          <button className="btn btn-small" onClick={() => setArchived(p.id, !p.archived)}>
-                            {p.archived ? 'アーカイブ解除' : 'アーカイブ'}
-                          </button>
-                          <button
-                            className="btn btn-small btn-danger"
-                            onClick={() => {
-                              setDeleting(p.id)
-                              setDeleteError(null)
-                            }}
-                          >
-                            削除
-                          </button>
-                        </>
+                        <RowMenu
+                          label={`${p.id} の操作`}
+                          archived={p.archived}
+                          onEdit={() => startEdit(p)}
+                          onToggleArchive={() => setArchived(p.id, !p.archived)}
+                          onDelete={() => {
+                            setDeleting(p.id)
+                            setDeleteError(null)
+                          }}
+                        />
                       )}
                     </td>
                   </tr>
@@ -266,6 +341,12 @@ export default function ProjectsModal({
                 <input value={todoistProject} onChange={(e) => setTodoistProject(e.target.value)} />
               </label>
             )}
+            {todoist && (
+              <label>
+                Todoist タグ
+                <input value={todoistTag} onChange={(e) => setTodoistTag(e.target.value)} />
+              </label>
+            )}
           </div>
           <label>
             概要
@@ -274,7 +355,8 @@ export default function ProjectsModal({
           <p className="form-hint">
             id はタスクのファイル名（<span className="mono">&lt;id&gt;-task-&lt;task-id&gt;-&lt;タイトル&gt;.md</span>）と置き場（
             <span className="mono">_task/&lt;id&gt;/</span>）に使うため、あとから変更できません。
-            {todoist ? '概要と Todoist プロジェクト名' : '概要'}は任意で、あとから編集できます。
+            {todoist ? '概要と Todoist プロジェクト名・タグ' : '概要'}は任意で、あとから編集できます。
+            {todoist && 'Todoist タグは1プロジェクトに1つだけ設定できます。'}
           </p>
           {error && <p className="form-error">{error}</p>}
           <div className="form-actions">

@@ -18,13 +18,31 @@ export type Settings = {
   cardFields: CardFields
   doneHideAfterDays: number | null
   theme: Theme
+  todoistAfterSync: TodoistAfterSync
+}
+
+type TodoistAfterSync = 'none' | 'complete' | 'delete'
+
+const AFTER_SYNC_LABELS: Record<TodoistAfterSync, string> = {
+  none: '何もしない',
+  complete: '完了にする',
+  delete: '削除する',
 }
 
 // 全体設定。設定は2つに分かれる:
 // - ユーザー設定（このダイアログで編集・同期しない）: root / taskFolder / trashFolder / configFolder。
 //   保存先はマシンごとのローカル設定ファイル（環境変数 BISMUTH_CONFIG／既定 ~/.config/bismuth/config.json）。
 // - システム設定（アプリが管理・同期する）: projects / 採番カウンター。vault 内 <root>/<configFolder>/config.json。
-export default function SettingsModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
+// Todoist 取込が無効（サーバの BISMUTH_TODOIST 未設定）なら Todoist の欄は出さず、保存もしない（保存済みの値は温存される）
+export default function SettingsModal({
+  todoist,
+  onClose,
+  onSaved,
+}: {
+  todoist: boolean
+  onClose: () => void
+  onSaved: () => void
+}) {
   const [loading, setLoading] = useState(true)
   const [defaults, setDefaults] = useState<Settings | null>(null)
   const [userConfigFile, setUserConfigFile] = useState('')
@@ -35,6 +53,7 @@ export default function SettingsModal({ onClose, onSaved }: { onClose: () => voi
   const [cardFields, setCardFields] = useState<CardFields>({ priority: true, due: true, tags: false, estimate: false })
   const [doneHideAfterDays, setDoneHideAfterDays] = useState('') // 完了タスクの非表示日数（空欄 = 非表示にしない・bismuth-45）
   const [theme, setTheme] = useState<Theme>('dark') // 画面テーマ（bismuth-174）
+  const [todoistAfterSync, setTodoistAfterSync] = useState<TodoistAfterSync>('none') // Todoist 同期後の処理（bismuth-206）
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
@@ -53,6 +72,7 @@ export default function SettingsModal({ onClose, onSaved }: { onClose: () => voi
         if (s.cardFields) setCardFields(s.cardFields)
         setDoneHideAfterDays(s.doneHideAfterDays != null ? String(s.doneHideAfterDays) : '')
         if (s.theme) setTheme(s.theme)
+        if (s.todoistAfterSync) setTodoistAfterSync(s.todoistAfterSync)
       })
       .catch((e) => setError(e instanceof Error ? e.message : String(e)))
       .finally(() => setLoading(false))
@@ -85,6 +105,7 @@ export default function SettingsModal({ onClose, onSaved }: { onClose: () => voi
           // 空欄は null（非表示にしない）。数値はサーバ側で 1 以上の整数に正規化される
           doneHideAfterDays: doneHideAfterDays.trim() === '' ? null : Number(doneHideAfterDays),
           theme,
+          ...(todoist ? { todoistAfterSync } : {}),
         }),
       })
       const data = await res.json()
@@ -96,6 +117,7 @@ export default function SettingsModal({ onClose, onSaved }: { onClose: () => voi
       setConfigFolder(s.configFolder)
       setDoneHideAfterDays(s.doneHideAfterDays != null ? String(s.doneHideAfterDays) : '')
       setTheme(s.theme)
+      setTodoistAfterSync(s.todoistAfterSync)
       setSaved(true)
       onSaved()
     } catch (err) {
@@ -234,6 +256,31 @@ export default function SettingsModal({ onClose, onSaved }: { onClose: () => voi
               </div>
               <span className="form-hint">「OS に合わせる」は OS のライト／ダーク設定に追従します。</span>
             </div>
+
+            {todoist && (
+              <div className="settings-section">
+                <div className="settings-section-title">Todoist 同期後のタスク</div>
+                <div className="settings-checks">
+                  {(Object.keys(AFTER_SYNC_LABELS) as TodoistAfterSync[]).map((v) => (
+                    <label key={v} className="check">
+                      <input
+                        type="radio"
+                        name="todoistAfterSync"
+                        checked={todoistAfterSync === v}
+                        onChange={() => setTodoistAfterSync(v)}
+                      />
+                      {AFTER_SYNC_LABELS[v]}
+                    </label>
+                  ))}
+                </div>
+                {todoistAfterSync === 'delete' && (
+                  <p className="form-warning">⚠ 削除した Todoist のタスクは元に戻せません。</p>
+                )}
+                <span className="form-hint">
+                  同期の実行時に、取り込んだタスクと掃除リストのタスクをどうするかを選びます。ただし、別のプロジェクトへの取込が残るタスクと、取り込んでいないサブタスクを持つタスクは処理しません（親を処理するとサブタスクも一緒に完了・削除されるため）。繰り返しタスクは、取り込んだ実行でだけ完了にします。マシンごとの設定です。
+                </span>
+              </div>
+            )}
 
             <div className="settings-info">
               <div className="settings-info-row">

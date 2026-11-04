@@ -157,7 +157,7 @@ app.post('/api/projects', async (req, reply) => {
   }
 })
 
-// id は不変（ファイル名と置き場に使う）。概要・Todoist 名・アーカイブの有無（archived）だけ更新できる
+// id は不変（ファイル名と置き場に使う）。概要・Todoist 名・Todoist タグ・アーカイブの有無（archived）だけ更新できる
 app.patch('/api/projects/:id', async (req, reply) => {
   const id = (req.params as { id: string }).id
   try {
@@ -182,12 +182,12 @@ app.delete('/api/projects/:id', async (req, reply) => {
   }
 })
 
-// Todoist 取込（Read 専用。Todoist には一切書き込まない）。
-// プレビューで取込予定を見せてから実行する2段階
+// Todoist 取込。プレビューで取込予定を見せてから実行する2段階。
+// Todoist への書き込みは、実行時に設定（todoistAfterSync）が「完了にする」「削除する」のときだけ行う
 app.get('/api/sync/todoist/preview', async (_req, reply) => {
   if (!todoistEnabled()) return reply.code(404).send({ error: TODOIST_DISABLED_MESSAGE })
   try {
-    return await previewSync(vault)
+    return { ...(await previewSync(vault)), afterSync: resolveSettings().todoistAfterSync }
   } catch (err) {
     return reply.code(400).send({ error: err instanceof Error ? err.message : String(err) })
   }
@@ -196,8 +196,10 @@ app.get('/api/sync/todoist/preview', async (_req, reply) => {
 app.post('/api/sync/todoist', async (req, reply) => {
   if (!todoistEnabled()) return reply.code(404).send({ error: TODOIST_DISABLED_MESSAGE })
   try {
-    const body = req.body as { todoistIds?: string[] } | undefined
-    return await runSync(vault, body?.todoistIds)
+    // 選択の指定が無いまま全件を取り込まないよう、keys を必須にする（全件取込は CLI だけ）
+    const keys = (req.body as { keys?: unknown } | undefined)?.keys
+    if (!Array.isArray(keys)) return reply.code(400).send({ error: 'keys（取り込む行の配列）が必要です' })
+    return await runSync(vault, keys.map(String), resolveSettings().todoistAfterSync)
   } catch (err) {
     return reply.code(400).send({ error: err instanceof Error ? err.message : String(err) })
   }

@@ -141,7 +141,6 @@ export interface NewTaskInput {
   parent?: number | null
   order?: number | null
   todoistId?: string | null // Todoist 取込元 ID（重複取込の防止。F1 設計 2.1）
-  subtasks?: string[] // 「## サブタスク」に入れるチェックリスト（Todoist のサブタスク）
 }
 
 export const STATUSES = ['icebox', 'backlog', 'ready', 'inprogress', 'done', 'dropped'] as const
@@ -307,7 +306,6 @@ export async function createTask(vault: string, input: NewTaskInput): Promise<Ta
     '',
     '## サブタスク',
     '',
-    ...(input.subtasks?.length ? [...input.subtasks.map((s) => `- [ ] ${s.replace(/\s*\n\s*/g, ' ').trim()}`), ''] : []),
     '## 作業記録',
     '',
     '| Start | End | Memo |',
@@ -467,7 +465,7 @@ export interface NewCommentInput {
 }
 
 // アプリからの投稿は「オーナー」名義（F1 設計 4.1）。秘書・プロジェクトセッションは
-// ノートに直接追記してよく、その場合も同じ形式で書く（F1 設計 7章の共存規約）
+// CLI の comment で書き手を指定して追記する（F1 設計 7章の共存規約）
 export async function addComment(
   vault: string,
   taskId: number,

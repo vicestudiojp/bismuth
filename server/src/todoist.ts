@@ -1,15 +1,21 @@
-// Todoist 取込（Read 専用）。F1 設計5章。
+// Todoist 取込。F1 設計5章。
 //
 // 原則:
-// - Todoist には一切書き込まない。消し込みは手で行う（取込済みかつ Todoist 側で未完のものは
-//   「掃除リスト」として見せる）
-// - 対象は projects の todoistProject が設定されているプロジェクトだけ（アーカイブ済みは除く・bismuth-226）
-// - 重複防止は frontmatter の todoist-id。既に取り込んだタスクはスキップする
+// - 既定では Todoist に書き込まない。取込済みで Todoist 側が未完のものは「掃除リスト」として見せ、手で消す。
+//   設定（todoistAfterSync）で「完了にする」「削除する」を選ぶと、取り込んだタスクと掃除リストのタスクを
+//   実行時に Todoist 側で処理する（bismuth-206）
+// - 対象は projects の todoistProject か todoistTag が設定されているプロジェクトだけ（アーカイブ済みは除く・bismuth-226）
+// - Todoist のタスク1件につき、マッチしたプロジェクトごとに別の Bismuth タスクにする（bismuth-206）。
+//   タグで B、プロジェクト名で C にマッチすれば B と C に1件ずつ。同じプロジェクトに両方でマッチしても1件
+// - Todoist のサブタスクは Bismuth のサブタスクにしない（bismuth-206）。取込の判定では親子関係を見ず、
+//   サブタスクも普通のタスクと同じく、それ自身のプロジェクト・タグで判定する
+// - 重複防止は frontmatter の todoist-id と project の組。既に取り込んだタスクはスキップする
 // - 誤操作を防ぐため、プレビュー（取込予定の一覧）と実行を分ける
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { listProjects } from './projects.js'
+import type { TodoistAfterSync } from './settings.js'
 import { createTask, scanTasks } from './vault.js'
 
 const BASE = 'https://api.todoist.com/api/v1'
@@ -27,13 +33,15 @@ export interface TodoistTask {
   content: string
   description: string
   projectId: string
-  parentId: string | null
+  parentId: string | null // 同期後の処理でだけ使う（親を完了・削除するとサブタスクも一緒に処理されるため）
+  recurring: boolean // 繰り返しタスク。同期後の処理でだけ使う（完了にしても未完のまま次回へ繰り越されるため）
   due: string | null
   labels: string[]
   priority: number // Todoist API の 1〜4（4 が最優先＝画面の p1）
 }
 
 export interface ImportItem {
+  key: string // 行の識別子。1つの Todoist タスクが複数のプロジェクトに入るので todoistId だけでは足りない
   todoistId: string
   project: string // Bismuth のプロジェクト id
   title: string
@@ -41,7 +49,6 @@ export interface ImportItem {
   due: string | null
   priority: string | null // P1〜P4（未設定は null）
   tags: string[]
-  subtasks: string[]
 }
 
 // 概要に h1/h2 は置けない（ノートのセクション構造を壊すため）。
@@ -59,9 +66,10 @@ export interface CleanupItem {
 
 export interface SyncPreview {
   imports: ImportItem[]
-  skipped: number // 既に取り込み済み（todoist-id 一致）
+  skipped: number // 既に取り込み済み（todoist-id と project が一致）
   cleanup: CleanupItem[] // 取込済みなのに Todoist 側で未完 → 手で消す候補
-  projects: { project: string; todoistProject: string; found: boolean }[]
+  // found / tagFound は対応づけの誤りの報告用。未設定の項目は問題がないので true
+  projects: { project: string; todoistProject: string; found: boolean; todoistTag: string; tagFound: boolean }[]
 }
 
 // トークンはマシン固有。vault にも共有設定にも置かない（task-sync スキルと同じ場所を使う）
@@ -82,6 +90,11 @@ async function apiGet(pathname: string, token: string, params: Record<string, st
   const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } })
   if (!res.ok) throw new Error(`Todoist API エラー（${res.status}）: ${pathname}`)
   return (await res.json()) as Record<string, unknown>
+}
+
+async function apiWrite(method: 'POST' | 'DELETE', pathname: string, token: string): Promise<void> {
+  const res = await fetch(`${BASE}${pathname}`, { method, headers: { Authorization: `Bearer ${token}` } })
+  if (!res.ok) throw new Error(`Todoist API エラー（${res.status}）: ${method} ${pathname}`)
 }
 
 async function paginate(pathname: string, token: string): Promise<Record<string, unknown>[]> {
@@ -106,21 +119,39 @@ function toPriority(p: number): string | null {
 }
 
 function toTask(raw: Record<string, unknown>): TodoistTask {
-  const due = raw.due as { date?: string } | null | undefined
+  const due = raw.due as { date?: string; is_recurring?: boolean } | null | undefined
   return {
     id: String(raw.id ?? ''),
     content: String(raw.content ?? '').trim(),
     description: String(raw.description ?? '').trim(),
     projectId: String(raw.project_id ?? ''),
     parentId: raw.parent_id == null ? null : String(raw.parent_id),
+    recurring: due?.is_recurring === true,
     due: due?.date ? String(due.date).slice(0, 10) : null,
     labels: Array.isArray(raw.labels) ? raw.labels.map(String) : [],
     priority: Number(raw.priority ?? 1),
   }
 }
 
+// Todoist のプロジェクト名・ラベル名の突き合わせは大文字小文字を区別しない
+function normalize(name: string): string {
+  return name.trim().toLowerCase()
+}
+
+function importKey(project: string, todoistId: string): string {
+  return `${project}:${todoistId}`
+}
+
+// runSync が同期後の処理に使う材料も含めた読み込み結果
+interface LoadedSync {
+  token: string
+  preview: SyncPreview
+  openTasks: TodoistTask[] // Todoist の未完タスク全件
+  knownIds: string[] // ノートのある Todoist タスクの id
+}
+
 // 取込対象を組み立てる（API を叩くだけで、ノートは書かない）
-export async function previewSync(vault: string): Promise<SyncPreview> {
+async function loadSync(vault: string): Promise<LoadedSync> {
   const token = resolveToken()
   if (!token) {
     throw new Error(
@@ -129,85 +160,167 @@ export async function previewSync(vault: string): Promise<SyncPreview> {
   }
 
   // アーカイブ済みのプロジェクトには取り込まない（取り込んでもボードに出ないため）
-  const mapped = listProjects(vault).filter((p) => p.todoistProject && !p.archived)
+  const mapped = listProjects(vault).filter((p) => (p.todoistProject || p.todoistTag) && !p.archived)
   if (mapped.length === 0) {
     throw new Error(
-      'Todoist プロジェクト名が設定されたプロジェクトがありません（プロジェクト画面で設定してください。アーカイブ済みは対象外）',
+      'Todoist プロジェクト名かタグが設定されたプロジェクトがありません（プロジェクト画面で設定してください。アーカイブ済みは対象外）',
     )
   }
 
   const todoistProjects = await paginate('/projects', token)
   const byName = new Map<string, string>() // Todoist プロジェクト名（小文字）→ id
-  for (const p of todoistProjects) byName.set(String(p.name ?? '').trim().toLowerCase(), String(p.id ?? ''))
+  for (const p of todoistProjects) byName.set(normalize(String(p.name ?? '')), String(p.id ?? ''))
 
   const targets = mapped.map((p) => ({
     project: p.id,
     todoistProject: p.todoistProject,
-    todoistProjectId: byName.get(p.todoistProject.trim().toLowerCase()) ?? null,
+    todoistProjectId: byName.get(normalize(p.todoistProject)) ?? null,
+    todoistTag: p.todoistTag,
   }))
 
   // Todoist が返すのは未完了タスクのみ（完了タスクは取り込まない）
   const all = (await paginate('/tasks', token)).map(toTask)
-  const byProjectId = new Map(targets.filter((t) => t.todoistProjectId).map((t) => [t.todoistProjectId!, t.project]))
+
+  // /labels は個人ラベルだけを返すので、未完タスクに付いているラベル（共有ラベルを含む）も合わせて判定する
+  const knownLabels = new Set(all.flatMap((t) => t.labels).map(normalize))
+  for (const label of await paginate('/labels', token)) knownLabels.add(normalize(String(label.name ?? '')))
 
   const known = await scanTasks(vault)
-  const imported = new Map(known.filter((t) => t.todoistId).map((t) => [t.todoistId!, t]))
-
-  const inScope = all.filter((t) => byProjectId.has(t.projectId))
-  const parents = inScope.filter((t) => t.parentId == null)
-  const children = inScope.filter((t) => t.parentId != null)
+  const imported = new Set(known.filter((t) => t.todoistId).map((t) => importKey(t.project, t.todoistId!)))
 
   const imports: ImportItem[] = []
   let skipped = 0
-  for (const t of parents) {
-    if (imported.has(t.id)) {
-      skipped++
-      continue
+  for (const t of all) {
+    const labels = t.labels.map(normalize)
+    for (const target of targets) {
+      if (t.projectId !== target.todoistProjectId && !labels.includes(normalize(target.todoistTag))) continue
+      const key = importKey(target.project, t.id)
+      if (imported.has(key)) {
+        skipped++
+        continue
+      }
+      imports.push({
+        key,
+        todoistId: t.id,
+        project: target.project,
+        title: t.content,
+        description: toOverview(t.description),
+        due: t.due,
+        priority: toPriority(t.priority),
+        tags: t.labels,
+      })
     }
-    imports.push({
-      todoistId: t.id,
-      project: byProjectId.get(t.projectId)!,
-      title: t.content,
-      description: toOverview(t.description),
-      due: t.due,
-      priority: toPriority(t.priority),
-      tags: t.labels,
-      subtasks: children.filter((c) => c.parentId === t.id).map((c) => c.content),
-    })
   }
 
   // 取込済みなのに Todoist 側でまだ未完 = 手で消す候補（アプリからは消さない）
   const openIds = new Set(all.map((t) => t.id))
-  const cleanup: CleanupItem[] = [...imported.values()]
-    .filter((t) => openIds.has(t.todoistId!))
+  const cleanup: CleanupItem[] = known
+    .filter((t) => t.todoistId && openIds.has(t.todoistId))
     .map((t) => ({ todoistId: t.todoistId!, taskId: t.taskId, title: t.title, project: t.project }))
 
   return {
-    imports,
-    skipped,
-    cleanup,
-    projects: targets.map((t) => ({
-      project: t.project,
-      todoistProject: t.todoistProject,
-      found: t.todoistProjectId != null,
-    })),
+    token,
+    openTasks: all,
+    knownIds: known.flatMap((t) => (t.todoistId ? [t.todoistId] : [])),
+    preview: {
+      imports,
+      skipped,
+      cleanup,
+      projects: targets.map((t) => ({
+        project: t.project,
+        todoistProject: t.todoistProject,
+        found: !t.todoistProject || t.todoistProjectId != null,
+        todoistTag: t.todoistTag,
+        tagFound: !t.todoistTag || knownLabels.has(normalize(t.todoistTag)),
+      })),
+    },
   }
+}
+
+export async function previewSync(vault: string): Promise<SyncPreview> {
+  return (await loadSync(vault)).preview
+}
+
+export interface AfterSyncResult {
+  action: TodoistAfterSync
+  done: { todoistId: string; title: string }[] // Todoist 側で完了・削除した
+  held: { todoistId: string; title: string; reason: string }[] // 取りこぼしを防ぐため処理しなかった
+  failed: { todoistId: string; title: string; error: string }[]
 }
 
 export interface SyncResult {
   imported: { taskId: number; title: string; project: string }[]
   skipped: number
-  failed: { title: string; error: string }[]
+  failed: { project: string; title: string; error: string }[]
   cleanup: CleanupItem[]
+  afterSync: AfterSyncResult
+}
+
+function descendantIds(tasks: TodoistTask[], id: string): string[] {
+  return tasks.filter((t) => t.parentId === id).flatMap((t) => [t.id, ...descendantIds(tasks, t.id)])
+}
+
+function depthOf(byId: Map<string, TodoistTask>, task: TodoistTask): number {
+  let depth = 0
+  for (let p = task.parentId; p && byId.has(p); p = byId.get(p)!.parentId) depth++
+  return depth
+}
+
+// ノートのある未完の Todoist タスク（今回取り込んだタスクと掃除リストのタスク）を、設定に応じて完了・削除する。
+// 親を完了・削除するとサブタスクも一緒に処理されるので（Todoist の仕様）、Bismuth に取り込まれていない
+// タスクを巻き込む場合は処理しない。取りこぼしを避けるためで、そのタスクは held として報告し、掃除リストに残す
+async function applyAfterSync(
+  action: TodoistAfterSync,
+  loaded: LoadedSync,
+  importedIds: Set<string>,
+  remainingIds: Set<string>, // まだ取り込んでいない行が残っている（未選択・作成失敗）
+): Promise<AfterSyncResult> {
+  const result: AfterSyncResult = { action, done: [], held: [], failed: [] }
+  if (action === 'none') return result
+
+  const { openTasks, token } = loaded
+  const inBismuth = new Set([...loaded.knownIds, ...importedIds])
+  const targets: TodoistTask[] = []
+  for (const t of openTasks.filter((task) => inBismuth.has(task.id))) {
+    const lost = descendantIds(openTasks, t.id).some((id) => !inBismuth.has(id) || remainingIds.has(id))
+    if (remainingIds.has(t.id)) {
+      result.held.push({ todoistId: t.id, title: t.content, reason: 'まだ取り込んでいないプロジェクトがあります' })
+    } else if (lost) {
+      result.held.push({ todoistId: t.id, title: t.content, reason: '取り込んでいないサブタスクがあります' })
+    } else if (action === 'complete' && t.recurring && !importedIds.has(t.id)) {
+      // 完了にしても次回へ繰り越されて未完のまま残るので、掃除リストから完了にすると同期のたびに予定が飛ぶ
+      result.held.push({ todoistId: t.id, title: t.content, reason: '繰り返しタスクは取り込んだ実行でだけ完了にします' })
+    } else {
+      targets.push(t)
+    }
+  }
+
+  // 親を先に処理するとサブタスクへの操作が 404 になるので、深いものから処理する
+  const byId = new Map(openTasks.map((t) => [t.id, t]))
+  targets.sort((a, b) => depthOf(byId, b) - depthOf(byId, a))
+  for (const t of targets) {
+    const id = encodeURIComponent(t.id)
+    try {
+      if (action === 'complete') await apiWrite('POST', `/tasks/${id}/close`, token)
+      else await apiWrite('DELETE', `/tasks/${id}`, token)
+      result.done.push({ todoistId: t.id, title: t.content })
+    } catch (err) {
+      result.failed.push({ todoistId: t.id, title: t.content, error: err instanceof Error ? err.message : String(err) })
+    }
+  }
+  return result
 }
 
 // プレビューのうち選択された分だけ取り込む（status は backlog 固定。Ready への配置は手動）。
-// selectedIds を省略した場合はプレビュー全件（CLI 用）
-export async function runSync(vault: string, selectedIds?: string[]): Promise<SyncResult> {
-  const preview = await previewSync(vault)
-  const targets = selectedIds ? preview.imports.filter((item) => selectedIds.includes(item.todoistId)) : preview.imports
+// selectedKeys（ImportItem.key）を省略した場合はプレビュー全件（CLI 用）。
+// afterSync は呼び出し側が設定から渡す（既定は Todoist に書き込まない）
+export async function runSync(vault: string, selectedKeys?: string[], afterSync: TodoistAfterSync = 'none'): Promise<SyncResult> {
+  const loaded = await loadSync(vault)
+  const { preview } = loaded
+  const targets = selectedKeys ? preview.imports.filter((item) => selectedKeys.includes(item.key)) : preview.imports
   const imported: SyncResult['imported'] = []
   const failed: SyncResult['failed'] = []
+  const importedKeys = new Set<string>()
 
   for (const item of targets) {
     try {
@@ -220,13 +333,20 @@ export async function runSync(vault: string, selectedIds?: string[]): Promise<Sy
         tags: item.tags, // Todoist のラベルだけを付ける（空なら空）
         body: item.description,
         todoistId: item.todoistId,
-        subtasks: item.subtasks,
       })
       imported.push({ taskId: detail.task.taskId, title: detail.task.title, project: detail.task.project })
+      importedKeys.add(item.key)
     } catch (err) {
-      failed.push({ title: item.title, error: err instanceof Error ? err.message : String(err) })
+      failed.push({ project: item.project, title: item.title, error: err instanceof Error ? err.message : String(err) })
     }
   }
 
-  return { imported, skipped: preview.skipped, failed, cleanup: preview.cleanup }
+  const rowIds = (done: boolean) => new Set(preview.imports.filter((i) => importedKeys.has(i.key) === done).map((i) => i.todoistId))
+  const after = await applyAfterSync(afterSync, loaded, rowIds(true), rowIds(false))
+
+  // 今の処理でなくなったタスク（一緒に処理されたサブタスクを含む）は、もう掃除の対象ではない
+  const gone = new Set(after.done.flatMap((d) => [d.todoistId, ...descendantIds(loaded.openTasks, d.todoistId)]))
+  const cleanup = preview.cleanup.filter((c) => !gone.has(c.todoistId))
+
+  return { imported, skipped: preview.skipped, failed, cleanup, afterSync: after }
 }

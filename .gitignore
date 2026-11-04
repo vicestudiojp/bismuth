@@ -1,6 +1,7 @@
 node_modules/
 dist/
 .playwright*
+.metadata
 
 # npm pack が作る配布物の tarball
 *.tgz

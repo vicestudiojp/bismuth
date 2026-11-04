@@ -183,6 +183,20 @@ fs.writeFileSync(localConfig, `${JSON.stringify({ theme: 'sepia' }, null, 2)}\n`
 const th3 = resolveSettings().theme
 check('theme: 不正値は dark に正規化', th3 === 'dark', JSON.stringify(th3))
 
+// 12) Todoist 同期後の処理（todoistAfterSync・bismuth-206）。不正値は安全側（何もしない）に倒す
+fs.rmSync(localConfig, { force: true })
+check('todoistAfterSync: 既定は none（何もしない）', resolveSettings().todoistAfterSync === 'none')
+saveSettings({ todoistAfterSync: 'delete' })
+check('todoistAfterSync: delete を保存できる', resolveSettings().todoistAfterSync === 'delete')
+saveSettings({ theme: 'light' })
+check('todoistAfterSync: 他の項目の保存で変わらない', resolveSettings().todoistAfterSync === 'delete')
+saveSettings({ todoistAfterSync: 'complete' })
+check('todoistAfterSync: complete を保存できる', resolveSettings().todoistAfterSync === 'complete')
+saveSettings({ todoistAfterSync: 'erase' as never })
+check('todoistAfterSync: 保存時の不正値は none', resolveSettings().todoistAfterSync === 'none')
+fs.writeFileSync(localConfig, `${JSON.stringify({ todoistAfterSync: 'erase' }, null, 2)}\n`, 'utf-8')
+check('todoistAfterSync: ファイルの不正値は none', resolveSettings().todoistAfterSync === 'none')
+
 console.log(`\n結果: PASS ${pass} / FAIL ${fail}`)
 if (fail === 0) {
   fs.rmSync(tmp, { recursive: true, force: true })

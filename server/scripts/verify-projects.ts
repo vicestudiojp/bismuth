@@ -3,7 +3,7 @@
 // 実行: npx tsx scripts/verify-projects.ts
 //
 // 方針（2026-07-13 オーナー指示）:
-// - 項目は id（必須・半角英数/ハイフン/アンダースコア。先頭は英数かアンダースコア）・概要（任意）・Todoist プロジェクト名（任意）
+// - 項目は id（必須・半角英数/ハイフン/アンダースコア。先頭は英数かアンダースコア）・概要（任意）・Todoist プロジェクト名（任意）・Todoist タグ（任意・1つだけ）
 // - id は不変（ファイル名 <project>-<task-id> と置き場 _task/<project>/ に使うため）
 // - vault のノートが正本。アプリ外で作られたプロジェクトは起動時に自動登録する
 // - 共有設定の未知キー（taskGlobs 等・人が手で足した設定）は温存する
@@ -51,15 +51,21 @@ const alpha = addProject(vault, {
   id: 'alpha',
   description: 'サンプル案件A',
   todoistProject: 'Alpha',
+  todoistTag: ' work ',
 })
-check('追加: 3項目が保存される', alpha.id === 'alpha' && alpha.description === 'サンプル案件A' && alpha.todoistProject === 'Alpha')
+check(
+  '追加: 4項目が保存される（タグは前後の空白を落とす）',
+  alpha.id === 'alpha' && alpha.description === 'サンプル案件A' && alpha.todoistProject === 'Alpha' && alpha.todoistTag === 'work',
+)
+check('追加: Todoist タグが config.json に入る', conf().projects.find((p: { id: string }) => p.id === 'alpha')?.todoistTag === 'work')
 check('追加: config.json の projects に入る', conf().projects.some((p: { id: string }) => p.id === 'alpha'))
 check('追加: 旧 todoistProjectMap は統合されて消える', conf().todoistProjectMap === undefined)
 check('追加: 未知キー（taskGlobs）は温存される', JSON.stringify(conf().taskGlobs) === JSON.stringify(['_task/*/*.md']))
 
 // 3) 任意項目は省略できる
 const minimal = addProject(vault, { id: 'gamma' })
-check('追加: 概要・Todoist 名は省略できる', minimal.description === '' && minimal.todoistProject === '')
+check('追加: 概要・Todoist 名・タグは省略できる', minimal.description === '' && minimal.todoistProject === '' && minimal.todoistTag === '')
+check('追加: タグが空なら config.json に書かない', !('todoistTag' in conf().projects.find((p: { id: string }) => p.id === 'gamma')))
 
 // 4) id のバリデーション
 for (const [name, id] of [
@@ -100,6 +106,11 @@ const updated = updateProject(vault, 'gamma', { description: 'サンプル案件
 check('更新: 概要と Todoist 名を変更できる', updated?.description === 'サンプル案件C' && updated?.todoistProject === 'Gamma')
 check('更新: 片方だけの更新で他方は消えない', updateProject(vault, 'gamma', { description: '改訂' })?.todoistProject === 'Gamma')
 check('更新: 空文字で消せる', updateProject(vault, 'gamma', { todoistProject: '' })?.todoistProject === '')
+check('更新: Todoist タグを変更できる', updateProject(vault, 'gamma', { todoistTag: ' Focus ' })?.todoistTag === 'Focus')
+check('更新: タグは他の項目の更新で消えない', updateProject(vault, 'gamma', { description: '改訂2' })?.todoistTag === 'Focus')
+check('更新: 読み直してもタグが残る', listProjects(vault).find((p) => p.id === 'gamma')?.todoistTag === 'Focus')
+check('更新: タグは空文字で消せる', updateProject(vault, 'gamma', { todoistTag: '' })?.todoistTag === '')
+check('更新: 消したタグは config.json に残らない', !('todoistTag' in conf().projects.find((p: { id: string }) => p.id === 'gamma')))
 check('更新: 存在しない id は null', updateProject(vault, 'nope', { description: 'x' }) === null)
 
 // 7) 起票すると未登録プロジェクトは自動登録される（vault が正本）

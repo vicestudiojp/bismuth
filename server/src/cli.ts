@@ -7,16 +7,18 @@
 //   npm run cli -- --json           # JSON（他のツールが機械処理する用）
 //   npm run cli -- --project alpha --status ready,inprogress --priority P1,P2 --due 1week --tag waiting
 //   npm run cli -- --all            # アーカイブ済みプロジェクトのタスクも含める（既定は隠す）
-//   npm run cli -- sync-todoist            # Todoist を取り込む（capture=inbox → Bismuth。BISMUTH_TODOIST=1 のときだけ）
+//   npm run cli -- sync-todoist            # Todoist を取り込む（BISMUTH_TODOIST=1 のときだけ。Todoist 側の処理は設定に従う）
 //   npm run cli -- sync-todoist --preview  # 取り込み予定だけ表示（書き込まない）
 //   npm run cli -- done bismuth-33 34      # タスクを完了にする（ID は project-N でも数字でも可）
 //   npm run cli -- create --project alpha --title "日次レビュー" --due 2026-07-20 --repeat daily   # 繰り返しタスクを起票
 //   npm run cli -- comment bismuth-33 "実施メモ" [--author 秘書]   # コメントを追記（書式は仕様どおり CLI が付ける）
 //   npm run cli -- tag bismuth-33 --add ai-done --remove ai        # タグを付け外しする（カンマ区切りで複数可）
 import { archivedProjectIds } from './projects.js'
-import { applyLayout, resolveSettings } from './settings.js'
+import { applyLayout, resolveSettings, type TodoistAfterSync } from './settings.js'
 import { previewSync, runSync, todoistEnabled, TODOIST_DISABLED_MESSAGE } from './todoist.js'
 import { addComment, createTask, scanTasks, updateTask, type NewTaskInput, type TaskCard } from './vault.js'
+
+const AFTER_SYNC_LABELS: Record<TodoistAfterSync, string> = { none: '何もしない', complete: '完了にする', delete: '削除する' }
 
 const COLUMNS: { key: string; label: string }[] = [
   { key: 'icebox', label: 'IceBox' },
@@ -196,7 +198,7 @@ async function main(): Promise<void> {
         '  done <id...>    タスクを完了にする（例: done alpha-12 13。複数まとめて可。繰り返しタスクは次回期限で backlog に戻る）',
         '  comment <id> "本文" [--author 秘書]   コメントを追記（既定の書き手=秘書。見出し #〜### は本文に使えない）',
         '  tag <id> [--add a,b] [--remove c]   タグを付け外しする',
-        ...(todoistEnabled() ? ['  sync-todoist [--preview]   Todoist を取り込む（capture=inbox → Bismuth）'] : []),
+        ...(todoistEnabled() ? ['  sync-todoist [--preview]   Todoist を取り込む（Todoist 側の処理は設定に従う）'] : []),
       ].join('\n'),
     )
     return
@@ -211,17 +213,26 @@ async function main(): Promise<void> {
       console.error(TODOIST_DISABLED_MESSAGE)
       process.exit(1)
     }
+    const afterSync = settings.todoistAfterSync
     if (bools.has('preview')) {
       const p = await previewSync(vault)
       console.log(`取込予定: ${p.imports.length}件 / スキップ(取込済): ${p.skipped}件`)
       for (const i of p.imports) console.log(`  + ${i.project}: ${i.title}${i.tags.length ? ` #${i.tags.join(' #')}` : ''}`)
+      if (afterSync !== 'none') console.log(`\n実行すると、取り込んだタスクと掃除候補を Todoist 側で「${AFTER_SYNC_LABELS[afterSync]}」（設定）`)
       if (p.cleanup.length) console.log(`\n掃除候補(Todoist側で未完のまま): ${p.cleanup.length}件`)
       return
     }
-    const r = await runSync(vault)
+    const r = await runSync(vault, undefined, afterSync)
     console.log(`取込: ${r.imported.length}件 / スキップ: ${r.skipped}件 / 失敗: ${r.failed.length}件`)
     for (const i of r.imported) console.log(`  + ${i.project}-${i.taskId} ${i.title}`)
     for (const f of r.failed) console.log(`  ! 失敗: ${f.title} — ${f.error}`)
+    if (afterSync !== 'none') {
+      const a = r.afterSync
+      console.log(`\nTodoist 側（${AFTER_SYNC_LABELS[afterSync]}）: 処理 ${a.done.length}件 / そのまま ${a.held.length}件 / 失敗 ${a.failed.length}件`)
+      for (const d of a.done) console.log(`  - ${d.title}`)
+      for (const h of a.held) console.log(`  = そのまま: ${h.title} — ${h.reason}`)
+      for (const f of a.failed) console.log(`  ! 失敗: ${f.title} — ${f.error}`)
+    }
     if (r.cleanup.length) console.log(`\n掃除候補(Todoist側で未完のまま): ${r.cleanup.length}件`)
     return
   }
