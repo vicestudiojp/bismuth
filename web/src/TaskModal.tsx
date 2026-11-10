@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import DocView from './DocView'
+import { stripSection } from './markdown'
 import RepeatInput, { repeatLabel } from './RepeatInput'
 import VaultMarkdown, { type DocLink } from './VaultMarkdown'
 
@@ -49,11 +50,6 @@ type Detail = {
 // 本文先頭の「# <id> <タイトル>」はモーダルタイトルと重複するため表示から除く
 function stripLeadingH1(body: string): string {
   return body.replace(/^\s*# [^\n]*\n/, '')
-}
-
-// 専用 UI を持つセクションは本文レンダリングから除く（二重表示の回避）
-function stripSection(body: string, heading: string): string {
-  return body.replace(new RegExp(`(?:^|\\n)## ${heading}\\n[\\s\\S]*?(?=\\n## |$)`), '')
 }
 
 // フォームの datetime-local（2026-07-13T15:20）とノートの表記（2026-07-13 15:20）を相互変換する

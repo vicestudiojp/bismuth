@@ -62,7 +62,7 @@ const TODOIST_TASKS = [
   {
     id: 't-1',
     content: '【改善】個別の概算費用を見積',
-    description: '見積の内訳を出す。\n## 見出しは概要に置けないので格下げされる',
+    description: '見積の内訳を出す。\n## 見出しは概要に置けないので格下げされる\n```bash\n# comment\n```\n```\n# 閉じていないブロックの中',
     project_id: 'p-alpha',
     parent_id: null,
     due: { date: '2026-07-20' },
@@ -246,6 +246,8 @@ check('取込: サブタスクが単独のノートになる', child!.task.title
 const withDesc = await getTask(vault, tasks.find((t) => t.todoistId === 't-1')!.taskId)
 check('取込: description → 概要', withDesc!.overview.includes('見積の内訳を出す。'))
 check('取込: 概要の h2 は格下げされる（セクション構造を壊さない）', withDesc!.overview.includes('#### 見出しは概要に置けない') && !/^## /m.test(withDesc!.overview))
+check('取込: コードブロックの中の # は格下げしない（bismuth-282）', withDesc!.overview.includes('```bash\n# comment\n```'), withDesc!.overview)
+check('取込: 閉じていないコードブロックは末尾で閉じる（bismuth-282）', withDesc!.overview.endsWith('```\n# 閉じていないブロックの中\n```') && withDesc!.subtasks === '' && withDesc!.comments.length === 0, withDesc!.overview)
 
 // 4) 冪等性（2回目は取り込まない）
 const again = await runSync(vault)

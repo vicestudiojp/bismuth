@@ -3,6 +3,7 @@ import path from 'node:path'
 import fg from 'fast-glob'
 import matter from 'gray-matter'
 import { claimTaskId, ensureProjects, readNextTaskId, setNextTaskId, validateProjectId } from './projects.js'
+import { maskCodeBlocks, unclosedCodeFence } from './markdown.js'
 import { nextDue, normalizeRepeat, parseRepeat } from './recurrence.js'
 import { configPath, taskDir, taskGlobPattern, taskIdGlobs, trashDir } from './settings.js'
 
@@ -363,17 +364,46 @@ export interface UpdateResult extends TaskDetail {
   recurred: { from: string | null; to: string } | null // 繰り返しで done を backlog に戻したときの旧期限と次回期限
 }
 
+// 閉じていないコードブロックは、ノートの後続のセクションまでコードにしてしまうので書き込ませない（bismuth-282）
+function validateCodeBlocks(text: string, label: string): void {
+  const fence = unclosedCodeFence(text)
+  if (fence) throw new Error(`${label}のコードブロックが閉じていません（${fence} で閉じてください）`)
+}
+
 // アプリから編集できる本文領域（概要・サブタスク）には h1/h2 見出しを許可しない
-// （ノートのセクション構造を壊させないため。### 以下は可）
+// （ノートのセクション構造を壊させないため。### 以下は可）。
+// コードブロックの中の「# 」「## 」は見出しではないので許可する（bismuth-282）
 export function validateOverview(text: string, label = '概要'): void {
-  if (/^#{1,2}\s/m.test(text)) {
+  validateCodeBlocks(text, label)
+  if (/^#{1,2}\s/m.test(maskCodeBlocks(text))) {
     throw new Error(`${label}に見出し（# / ##）は使えません（### 以下は可）`)
   }
 }
 
+interface SectionRange {
+  start: number // 見出し行の直前の改行の位置（ノートの先頭の見出しなら 0）
+  bodyStart: number // 見出し行の直後
+  end: number // 次の「## 」見出しの直前の改行の位置（無ければノートの末尾）
+}
+
+// 「## <heading>」セクションの範囲を返す。コードブロックの中の「## 」は見出しとみなさない（bismuth-282）。
+// masked は maskCodeBlocks(content) の結果（呼び出し側で作ってあれば渡す）
+function findSection(content: string, heading: string, masked = maskCodeBlocks(content)): SectionRange | null {
+  const m = new RegExp(`(?:^|\\n)## ${heading}\\n`).exec(masked)
+  if (!m) return null
+  const bodyStart = m.index + m[0].length
+  const next = masked.indexOf('\n## ', bodyStart)
+  return { start: m.index, bodyStart, end: next >= 0 ? next : content.length }
+}
+
+// 「## <heading>」で始まる行の位置（直前の改行の位置）。コードブロックの中は探さない
+function indexOfHeading(raw: string, heading: string): number {
+  return maskCodeBlocks(raw).indexOf(`\n## ${heading}`)
+}
+
 function extractSection(content: string, heading: string): string {
-  const m = content.match(new RegExp(`(?:^|\\n)## ${heading}\\n([\\s\\S]*?)(?=\\n## |$)`))
-  return m ? m[1].trim() : ''
+  const s = findSection(content, heading)
+  return s ? content.slice(s.bodyStart, s.end).trim() : ''
 }
 
 export function extractOverview(content: string): string {
@@ -389,11 +419,9 @@ export function extractSubtasks(content: string): string {
 function replaceSection(raw: string, heading: string, text: string): string | null {
   const body = text.trim()
   const section = body ? `\n## ${heading}\n\n${body}\n` : `\n## ${heading}\n`
-  const mid = new RegExp(`\\n## ${heading}\\n[\\s\\S]*?(?=\\n## )`)
-  if (mid.test(raw)) return raw.replace(mid, () => section)
-  const tail = new RegExp(`\\n## ${heading}\\n[\\s\\S]*$`)
-  if (tail.test(raw)) return raw.replace(tail, () => section)
-  return null
+  const s = findSection(raw, heading)
+  if (!s) return null
+  return raw.slice(0, s.start) + section + raw.slice(s.end)
 }
 
 // 「## 概要」セクションの中身だけを差し替える。他のセクションは温存する
@@ -408,31 +436,37 @@ function replaceSubtasks(raw: string, subtasks: string): string {
   const next = replaceSection(raw, 'サブタスク', subtasks)
   if (next != null) return next
   if (!subtasks.trim()) return raw
-  const afterOverview = /(\n## 概要\n[\s\S]*?)(?=\n## |$)/
-  if (!afterOverview.test(raw)) throw new Error('「## サブタスク」「## 概要」セクションが見つかりません')
-  return raw.replace(afterOverview, (m) => `${m.replace(/\n*$/, '\n')}\n## サブタスク\n\n${subtasks.trim()}\n`)
+  const overview = findSection(raw, '概要')
+  if (!overview) throw new Error('「## サブタスク」「## 概要」セクションが見つかりません')
+  const section = raw.slice(overview.start, overview.end)
+  return raw.slice(0, overview.start) + `${section.replace(/\n*$/, '\n')}\n## サブタスク\n\n${subtasks.trim()}\n` + raw.slice(overview.end)
 }
 
 // 「## コメント」セクションを 1 コメント = 「### <日時> — <書き手>」単位で読む（F1 設計 2.2）。
 // 書き手を記録した手書きコメント（秘書・プロジェクトセッション）も同じ形式なのでそのまま読める
+// コードブロックの中の「### 」はコメントの区切りとみなさない（bismuth-282）
 export function extractComments(content: string): TaskComment[] {
-  const section = content.match(/(?:^|\n)## コメント\n([\s\S]*?)(?=\n## |$)/)
-  if (!section) return []
+  const masked = maskCodeBlocks(content)
+  const s = findSection(content, 'コメント', masked)
+  if (!s) return []
+  const section = content.slice(s.bodyStart, s.end)
   const comments: TaskComment[] = []
   const head = /^### +(\d{4}-\d{2}-\d{2}(?: \d{2}:\d{2})?) +[—-] +(.+?) *$/gm
-  const heads = [...section[1].matchAll(head)]
+  const heads = [...masked.slice(s.bodyStart, s.end).matchAll(head)]
   heads.forEach((m, i) => {
     const start = m.index! + m[0].length
-    const end = i + 1 < heads.length ? heads[i + 1].index! : section[1].length
-    comments.push({ at: m[1], author: m[2], body: section[1].slice(start, end).trim() })
+    const end = i + 1 < heads.length ? heads[i + 1].index! : section.length
+    comments.push({ at: m[1], author: m[2], body: section.slice(start, end).trim() })
   })
   return comments
 }
 
-// コメント本文はセクション構造（## 見出し）とコメント区切り（### 見出し）を壊してはならない
+// コメント本文はセクション構造（## 見出し）とコメント区切り（### 見出し）を壊してはならない。
+// コードブロックの中の「# 」〜「### 」は見出しではないので許可する（bismuth-282）
 export function validateComment(text: string): void {
   if (!text.trim()) throw new Error('コメントが空です')
-  if (/^#{1,3}\s/m.test(text)) {
+  validateCodeBlocks(text, 'コメント')
+  if (/^#{1,3}\s/m.test(maskCodeBlocks(text))) {
     throw new Error('コメントに見出し（# / ## / ###）は使えません（#### 以下は可）')
   }
 }
@@ -447,14 +481,13 @@ function nowStamp(): string {
 // 指定セクションの末尾にブロックを追記する。既存行は書き換えない（F1 設計 2.2「追記は常に該当セクションの末尾へ」）。
 // セクションが無いノートには「## 成果物・関連リンク」の手前（無ければ末尾）に作る
 function appendToSection(raw: string, heading: string, block: string): string {
-  const re = new RegExp(`(?:^|\\n)## ${heading}\\n[\\s\\S]*?(?=\\n## |$)`)
-  const m = raw.match(re)
-  if (m) {
-    const section = m[0].replace(/\s*$/, '')
-    return raw.slice(0, m.index!) + `${section}\n\n${block}\n` + raw.slice(m.index! + m[0].length)
+  const s = findSection(raw, heading)
+  if (s) {
+    const section = raw.slice(s.start, s.end).replace(/\s*$/, '')
+    return raw.slice(0, s.start) + `${section}\n\n${block}\n` + raw.slice(s.end)
   }
   const newSection = `\n## ${heading}\n\n${block}\n`
-  const anchor = raw.indexOf('\n## 成果物・関連リンク')
+  const anchor = indexOfHeading(raw, '成果物・関連リンク')
   if (anchor >= 0) return raw.slice(0, anchor) + newSection + raw.slice(anchor)
   return `${raw.replace(/\s*$/, '')}\n${newSection}`
 }
@@ -510,10 +543,10 @@ export async function addComment(
 const STAMP = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/
 
 export function extractWorkSessions(content: string): WorkSession[] {
-  const section = content.match(/(?:^|\n)## 作業記録\n([\s\S]*?)(?=\n## |$)/)
-  if (!section) return []
+  const s = findSection(content, '作業記録')
+  if (!s) return []
   const sessions: WorkSession[] = []
-  for (const line of section[1].split('\n')) {
+  for (const line of content.slice(s.bodyStart, s.end).split('\n')) {
     if (!line.trim().startsWith('|')) continue
     // メモ内のパイプは `\|` とエスケープして書くので、区切りとして扱わない
     const cells = line.trim().replace(/^\|/, '').replace(/\|$/, '').split(/(?<!\\)\|/)
@@ -555,20 +588,19 @@ function workSessionRow(s: { start: string; end: string | null; memo: string }):
 // テーブルの最終行の直後に追記する（セクション末尾ではない。表を分断させないため）。
 // 「## 作業記録」やヘッダー行が無いノートには表ごと新設する
 function appendWorkSessionRow(raw: string, row: string): string {
-  const re = /(?:^|\n)## 作業記録\n[\s\S]*?(?=\n## |$)/
-  const m = raw.match(re)
+  const s = findSection(raw, '作業記録')
   const header = '| Start | End | Memo |\n|---|---|---|'
-  if (!m) {
+  if (!s) {
     const newSection = `\n## 作業記録\n\n${header}\n${row}\n`
-    const anchor = ['\n## コメント', '\n## 成果物・関連リンク']
-      .map((h) => raw.indexOf(h))
+    const anchor = ['コメント', '成果物・関連リンク']
+      .map((h) => indexOfHeading(raw, h))
       .filter((i) => i >= 0)
       .sort((a, b) => a - b)[0]
     if (anchor != null) return raw.slice(0, anchor) + newSection + raw.slice(anchor)
     return `${raw.replace(/\s*$/, '')}\n${newSection}`
   }
 
-  const section = m[0]
+  const section = raw.slice(s.start, s.end)
   const lines = section.split('\n')
   let lastRow = -1
   lines.forEach((line, i) => {
@@ -577,10 +609,10 @@ function appendWorkSessionRow(raw: string, row: string): string {
   if (lastRow < 0) {
     // セクションはあるがテーブルが無い（手で消された等）
     const rebuilt = `${section.replace(/\s*$/, '')}\n\n${header}\n${row}\n`
-    return raw.slice(0, m.index!) + rebuilt + raw.slice(m.index! + section.length)
+    return raw.slice(0, s.start) + rebuilt + raw.slice(s.end)
   }
   lines.splice(lastRow + 1, 0, row)
-  return raw.slice(0, m.index!) + lines.join('\n') + raw.slice(m.index! + section.length)
+  return raw.slice(0, s.start) + lines.join('\n') + raw.slice(s.end)
 }
 
 export async function addWorkSession(

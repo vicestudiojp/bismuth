@@ -14,6 +14,7 @@
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import { maskCodeBlocks, unclosedCodeFence } from './markdown.js'
 import { listProjects } from './projects.js'
 import type { TodoistAfterSync } from './settings.js'
 import { createTask, scanTasks } from './vault.js'
@@ -52,9 +53,17 @@ export interface ImportItem {
 }
 
 // 概要に h1/h2 は置けない（ノートのセクション構造を壊すため）。
-// Todoist の description に見出しがあればレベルを下げて取り込む
+// Todoist の description に見出しがあればレベルを下げて取り込む。
+// コードブロックの中の「# 」「## 」は見出しではないので、そのまま残す。
+// 閉じていないコードブロックは後続のセクションまでコードにしてしまうので、末尾で閉じる（bismuth-282）
 function toOverview(description: string): string {
-  return description.replace(/^(#{1,2})\s/gm, '#### ')
+  const fence = unclosedCodeFence(description)
+  const text = fence ? `${description}\n${fence}` : description
+  const masked = maskCodeBlocks(text).split('\n')
+  return text
+    .split('\n')
+    .map((line, i) => (/^#{1,2}\s/.test(masked[i]) ? line.replace(/^#{1,2}\s/, '#### ') : line))
+    .join('\n')
 }
 
 export interface CleanupItem {
