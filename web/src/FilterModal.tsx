@@ -95,6 +95,18 @@ export default function FilterModal({
 
         <div className="filter-form">
           <div className="filter-row">
+            <span className="filter-label">タスク名</span>
+            <input
+              className="filter-input"
+              type="search"
+              value={filter.title}
+              placeholder="部分一致（空白区切りですべてを含む）"
+              aria-label="タスク名"
+              autoFocus
+              onChange={(e) => onChange({ ...filter, title: e.target.value })}
+            />
+          </div>
+          <div className="filter-row">
             <span className="filter-label">プロジェクト</span>
             <MultiSelect
               options={projectOptions}
@@ -142,7 +154,10 @@ export default function FilterModal({
             クリア
           </button>
         </div>
-        <p className="form-hint">複数選択はいずれかに一致（OR）。項目間は AND。変更は即座に一覧へ反映されます。</p>
+        <p className="form-hint">
+          タスク名は空白で区切った語をすべて含むものに一致（大文字小文字・全角半角は区別しない）。複数選択はいずれかに一致（OR）。項目間は
+          AND。変更は即座に一覧へ反映されます。
+        </p>
       </div>
     </div>
   )

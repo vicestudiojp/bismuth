@@ -917,14 +917,29 @@ body {
   color: var(--text-label);
 }
 
-.filter-select {
+.filter-select,
+.filter-input {
   flex: 1;
+  min-width: 0;
   background: var(--bg-field);
   border: 1px solid var(--border-field);
   color: var(--text-2);
   border-radius: 6px;
   padding: 6px 8px;
   font-size: 13px;
+}
+
+.filter-input {
+  font-family: inherit;
+}
+
+.filter-input::placeholder {
+  color: var(--text-faint);
+}
+
+.filter-input:focus {
+  outline: none;
+  border-color: var(--focus);
 }
 
 /* プルダウン複数選択 */

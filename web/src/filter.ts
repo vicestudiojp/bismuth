@@ -14,15 +14,17 @@ export type DueFilter =
   | '2years'
 
 export type Filter = {
+  title: string // 空 = すべて。空白で区切った語をすべて含むタスク名（部分一致・AND）
   projects: string[] // 空 = すべて。含まれるプロジェクトのみ
   priorities: string[] // 空 = すべて。P1〜P4 と 'none'（優先度なし）
   tags: string[] // 空 = すべて。いずれかのタグを持つ（OR）
   due: DueFilter // 単一選択
 }
 
-export const EMPTY_FILTER: Filter = { projects: [], priorities: [], tags: [], due: 'all' }
+export const EMPTY_FILTER: Filter = { title: '', projects: [], priorities: [], tags: [], due: 'all' }
 
 export type FilterableTask = {
+  title: string
   project: string
   priority: string | null
   tags: string[]
@@ -103,7 +105,26 @@ export function matchesDue(due: string | null, f: DueFilter, now: Date = new Dat
   return boundary != null && due <= boundary
 }
 
+// 検索用の正規化。全角英数・全角空白を半角に、半角カナを全角にそろえ（NFKC）、英字の大文字小文字を区別しない
+function normalizeForSearch(s: string): string {
+  return s.normalize('NFKC').toLowerCase()
+}
+
+// タスク名の検索語。空白（全角も含む）で区切り、空の語は捨てる
+export function titleWords(query: string): string[] {
+  return normalizeForSearch(query).split(/\s+/).filter((w) => w !== '')
+}
+
+// タスク名フィルタ。検索語をすべて含めば一致（AND）。検索語が無ければ常に一致
+export function matchesTitle(title: string, query: string): boolean {
+  const words = titleWords(query)
+  if (words.length === 0) return true
+  const target = normalizeForSearch(title)
+  return words.every((w) => target.includes(w))
+}
+
 export function matchesFilter(t: FilterableTask, f: Filter, now: Date = new Date()): boolean {
+  if (!matchesTitle(t.title, f.title)) return false
   if (f.projects.length > 0 && !f.projects.includes(t.project)) return false
   if (f.priorities.length > 0 && !f.priorities.includes(t.priority ?? 'none')) return false
   if (f.tags.length > 0 && !f.tags.some((tag) => t.tags.includes(tag))) return false
@@ -112,5 +133,11 @@ export function matchesFilter(t: FilterableTask, f: Filter, now: Date = new Date
 }
 
 export function isFilterActive(f: Filter): boolean {
-  return f.projects.length > 0 || f.priorities.length > 0 || f.tags.length > 0 || f.due !== 'all'
+  return (
+    titleWords(f.title).length > 0 ||
+    f.projects.length > 0 ||
+    f.priorities.length > 0 ||
+    f.tags.length > 0 ||
+    f.due !== 'all'
+  )
 }
