@@ -17,11 +17,11 @@ export type Filter = {
   title: string // 空 = すべて。空白で区切った語をすべて含むタスク名（部分一致・AND）
   projects: string[] // 空 = すべて。含まれるプロジェクトのみ
   priorities: string[] // 空 = すべて。P1〜P4 と 'none'（優先度なし）
-  tags: string[] // 空 = すべて。いずれかのタグを持つ（OR）
+  tags: string // 空 = すべて。カンマで区切ったタグのいずれかを持つ（完全一致・OR）
   due: DueFilter // 単一選択
 }
 
-export const EMPTY_FILTER: Filter = { title: '', projects: [], priorities: [], tags: [], due: 'all' }
+export const EMPTY_FILTER: Filter = { title: '', projects: [], priorities: [], tags: '', due: 'all' }
 
 export type FilterableTask = {
   title: string
@@ -123,11 +123,36 @@ export function matchesTitle(title: string, query: string): boolean {
   return words.every((w) => target.includes(w))
 }
 
+// タグの検索語。カンマ（全角も含む）で区切り、前後の空白を除き、空の語は捨てる
+export function tagTerms(query: string): string[] {
+  return normalizeForSearch(query)
+    .split(',')
+    .map((w) => w.trim())
+    .filter((w) => w !== '')
+}
+
+// タグフィルタ。検索語のどれかと同じタグを持てば一致（完全一致・OR）。検索語が無ければ常に一致
+export function matchesTags(tags: string[], query: string): boolean {
+  const terms = tagTerms(query)
+  if (terms.length === 0) return true
+  return tags.some((tag) => terms.includes(normalizeForSearch(tag).trim()))
+}
+
+// タグ欄の入力候補（datalist の値）。入力中の語（最後のカンマより後ろ）を各タグに差し替えた値を返す。
+// ブラウザは入力値を含む候補だけを出すので、入力中の語で候補が絞られる。入力済みのタグは候補から外す
+export function tagSuggestions(query: string, tags: string[]): string[] {
+  const m = query.match(/^([\s\S]*[,，])(\s*)([\s\S]*)$/)
+  // カンマの直後で何も打っていなければ空白を1つ補う。打ち始めていれば入力どおりにする（入力値を含む候補にするため）
+  const head = m ? m[1] + (m[2] !== '' || m[3] !== '' ? m[2] : ' ') : ''
+  const entered = tagTerms(head)
+  return tags.filter((tag) => !entered.includes(normalizeForSearch(tag).trim())).map((tag) => head + tag)
+}
+
 export function matchesFilter(t: FilterableTask, f: Filter, now: Date = new Date()): boolean {
   if (!matchesTitle(t.title, f.title)) return false
   if (f.projects.length > 0 && !f.projects.includes(t.project)) return false
   if (f.priorities.length > 0 && !f.priorities.includes(t.priority ?? 'none')) return false
-  if (f.tags.length > 0 && !f.tags.some((tag) => t.tags.includes(tag))) return false
+  if (!matchesTags(t.tags, f.tags)) return false
   if (!matchesDue(t.due, f.due, now)) return false
   return true
 }
@@ -137,7 +162,7 @@ export function isFilterActive(f: Filter): boolean {
     titleWords(f.title).length > 0 ||
     f.projects.length > 0 ||
     f.priorities.length > 0 ||
-    f.tags.length > 0 ||
+    tagTerms(f.tags).length > 0 ||
     f.due !== 'all'
   )
 }

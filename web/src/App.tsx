@@ -339,16 +339,14 @@ export default function App() {
     }
   }
 
-  // フィルタ適用後のタスクと、プルダウンの選択肢
+  // フィルタ適用後のタスクと、プルダウンの選択肢・タグ欄の候補
   const filtered = visibleTasks.filter((t) => matchesFilter(t, filter))
   const activeProjects = projects.filter((p) => !p.archived).map((p) => p.id)
   const allProjects = Array.from(new Set([...activeProjects, ...visibleTasks.map((t) => t.project)])).sort((a, b) =>
     a.localeCompare(b),
   )
   const projectOptions = allProjects.map((id) => ({ value: id, label: id }))
-  const tagOptions = Array.from(new Set(visibleTasks.flatMap((t) => t.tags)))
-    .sort((a, b) => a.localeCompare(b))
-    .map((t) => ({ value: t, label: t }))
+  const tagOptions = Array.from(new Set(visibleTasks.flatMap((t) => t.tags))).sort((a, b) => a.localeCompare(b))
 
   return (
     <div className="app">

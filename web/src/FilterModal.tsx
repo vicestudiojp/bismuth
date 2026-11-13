@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { DueFilter, Filter } from './filter'
-import { DUE_OPTIONS, EMPTY_FILTER, PRIORITY_OPTIONS } from './filter'
+import { DUE_OPTIONS, EMPTY_FILTER, PRIORITY_OPTIONS, tagSuggestions } from './filter'
 
 type Option = { value: string; label: string }
 
@@ -72,7 +72,7 @@ export default function FilterModal({
   filter: Filter
   onChange: (next: Filter) => void
   projectOptions: Option[]
-  tagOptions: Option[]
+  tagOptions: string[]
   matchedCount: number
   totalCount: number
   onClose: () => void
@@ -124,11 +124,20 @@ export default function FilterModal({
           </div>
           <div className="filter-row">
             <span className="filter-label">タグ</span>
-            <MultiSelect
-              options={tagOptions}
-              selected={filter.tags}
-              onChange={(tags) => onChange({ ...filter, tags })}
+            <input
+              className="filter-input"
+              type="search"
+              value={filter.tags}
+              placeholder="tagA, tagB（カンマ区切りでいずれかを持つ）"
+              aria-label="タグ"
+              list="filter-tag-options"
+              onChange={(e) => onChange({ ...filter, tags: e.target.value })}
             />
+            <datalist id="filter-tag-options">
+              {tagSuggestions(filter.tags, tagOptions).map((v) => (
+                <option key={v} value={v} />
+              ))}
+            </datalist>
           </div>
           <div className="filter-row">
             <span className="filter-label">期限</span>
@@ -155,7 +164,7 @@ export default function FilterModal({
           </button>
         </div>
         <p className="form-hint">
-          タスク名は空白で区切った語をすべて含むものに一致（大文字小文字・全角半角は区別しない）。複数選択はいずれかに一致（OR）。項目間は
+          タスク名は空白で区切った語をすべて含むものに一致。タグはカンマで区切ったタグのいずれかを持つものに一致（完全一致）。どちらも大文字小文字・全角半角は区別しない。複数選択はいずれかに一致（OR）。項目間は
           AND。変更は即座に一覧へ反映されます。
         </p>
       </div>
