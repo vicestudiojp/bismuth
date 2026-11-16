@@ -83,10 +83,12 @@ function formatHours(min: number): string {
 
 export default function TaskModal({
   taskId,
+  initialMode = 'view',
   onClose,
   onUpdated,
 }: {
   taskId: number
+  initialMode?: 'view' | 'edit' // 'edit' なら読み込み後すぐ編集フォームを出す（カードの右クリックの「編集」・bismuth-302）
   onClose: () => void
   onUpdated?: () => void
 }) {
@@ -144,8 +146,12 @@ export default function TaskModal({
     setDeleteError(null)
     fetch(`/api/tasks/${taskId}`)
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
-      .then(setDetail)
+      .then((d: Detail) => {
+        setDetail(d)
+        if (initialMode === 'edit') startEdit(d)
+      })
       .catch(() => setError(true))
+    // initialMode は開いたときの1回だけ使う（保存やキャンセルの後は詳細表示に戻す）ので依存に入れない
   }, [taskId])
 
   useEffect(() => {
@@ -165,17 +171,18 @@ export default function TaskModal({
     setDocStack((s) => [...s, link])
   }
 
-  function startEdit() {
-    if (!detail) return
-    setTitle(detail.task.title)
-    setStatus(detail.task.status)
-    setPriority(detail.task.priority ?? '')
-    setDue(detail.task.due ?? '')
-    setRepeat(detail.task.repeat ?? '')
-    setTags(detail.task.tags.join(', '))
-    setEstimate(detail.task.estimate == null ? '' : String(detail.task.estimate))
-    setOverview(detail.overview)
-    setSubtasks(detail.subtasks)
+  // 読み込み直後（state の detail がまだ古い）にも呼べるよう、対象を引数でも受ける
+  function startEdit(d: Detail | null = detail) {
+    if (!d) return
+    setTitle(d.task.title)
+    setStatus(d.task.status)
+    setPriority(d.task.priority ?? '')
+    setDue(d.task.due ?? '')
+    setRepeat(d.task.repeat ?? '')
+    setTags(d.task.tags.join(', '))
+    setEstimate(d.task.estimate == null ? '' : String(d.task.estimate))
+    setOverview(d.overview)
+    setSubtasks(d.subtasks)
     setSaveError(null)
     setNotice(null)
     setMode('edit')
@@ -353,7 +360,7 @@ export default function TaskModal({
                 <button className="btn btn-small" onClick={() => setConfirmDelete(true)}>
                   削除
                 </button>
-                <button className="btn btn-edit" onClick={startEdit}>
+                <button className="btn btn-edit" onClick={() => startEdit()}>
                   編集
                 </button>
               </span>

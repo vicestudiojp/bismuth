@@ -1249,6 +1249,36 @@ body {
   color: var(--danger-text);
 }
 
+/* キーボードで項目を移ったときも、マウスを乗せたときと同じ見た目にする */
+.row-menu-item:focus-visible {
+  outline: none;
+  background: var(--bg-subtle);
+}
+
+/* カードの右クリックメニュー（bismuth-302）。「…」メニューの見た目のまま、マウスの位置に固定で出す */
+.row-menu-panel.card-menu {
+  position: fixed;
+  right: auto;
+  z-index: 20;
+  outline: none;
+}
+
+.card-menu-sep {
+  height: 1px;
+  margin: 4px 2px;
+  background: var(--border);
+}
+
+/* メニューを開いているカード */
+.card-menu-open {
+  border-color: var(--focus);
+}
+
+/* 確認だけのダイアログは詳細より狭くする */
+.modal.modal-confirm {
+  width: min(440px, 100%);
+}
+
 /* アーカイブ済みのプロジェクト（bismuth-226）。行の文字を沈め、id の横に印を付ける */
 .proj-archived td {
   color: var(--text-dim);

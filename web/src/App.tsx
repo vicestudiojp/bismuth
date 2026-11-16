@@ -1,4 +1,7 @@
 import { Fragment, useCallback, useEffect, useState } from 'react'
+import CardMenu from './CardMenu'
+import type { CardMenuItem } from './CardMenu'
+import DeleteTaskModal from './DeleteTaskModal'
 import NewTaskModal from './NewTaskModal'
 import ProjectsModal from './ProjectsModal'
 import type { Project } from './ProjectsModal'
@@ -172,7 +175,10 @@ export default function App() {
   const [todoistEnabled, setTodoistEnabled] = useState(false)
   const [tasks, setTasks] = useState<Task[]>([])
   const [projects, setProjects] = useState<Project[]>([])
-  const [selected, setSelected] = useState<number | null>(null)
+  // 開いているタスク詳細。edit はカードの右クリックの「編集」から開いたとき（編集フォームで開く・bismuth-302）
+  const [selected, setSelected] = useState<{ taskId: number; edit: boolean } | null>(null)
+  const [cardMenu, setCardMenu] = useState<{ taskId: number; x: number; y: number } | null>(null) // カードの右クリックメニュー（bismuth-302）
+  const [deleting, setDeleting] = useState<Task | null>(null) // 右クリックの「削除」の確認中のタスク
   const [creating, setCreating] = useState(false)
   const [managingProjects, setManagingProjects] = useState(false)
   const [syncing, setSyncing] = useState(false)
@@ -216,6 +222,8 @@ export default function App() {
       })
       .catch(() => setTasks([]))
   }, [])
+
+  const closeCardMenu = useCallback(() => setCardMenu(null), [])
 
   const loadProjects = useCallback(() => {
     fetch('/api/projects')
@@ -338,6 +346,22 @@ export default function App() {
       loadTasks()
     }
   }
+
+  // カードの右クリックメニューの項目（bismuth-302）。完了済みのカードには「完了」を出さない。
+  // 「一番上に」「一番下に」は手動ソートの列だけに出し、ドラッグと同じく表示中のカードの先頭・末尾へ動かす
+  function cardMenuItems(t: Task): CardMenuItem[] {
+    const items: CardMenuItem[] = [{ label: '編集', onSelect: () => setSelected({ taskId: t.taskId, edit: true }) }]
+    if (t.status !== 'done') items.push({ label: '完了', onSelect: () => void moveTask(t.taskId, 'done') })
+    if ((columnSort[t.status] ?? 'priority') === 'manual') {
+      items.push(
+        { label: '一番上に', onSelect: () => void dropManual(t.taskId, t.status, 0) },
+        { label: '一番下に', onSelect: () => void dropManual(t.taskId, t.status, Number.MAX_SAFE_INTEGER) },
+      )
+    }
+    items.push({ label: '削除', danger: true, separatorBefore: true, onSelect: () => setDeleting(t) })
+    return items
+  }
+  const cardMenuTask = cardMenu ? tasks.find((t) => t.taskId === cardMenu.taskId) : undefined
 
   // フィルタ適用後のタスクと、プルダウンの選択肢・タグ欄の候補
   const filtered = visibleTasks.filter((t) => matchesFilter(t, filter))
@@ -496,7 +520,7 @@ export default function App() {
                   <Fragment key={t.taskId}>
                   {manual && dropPos?.col === key && dropPos.index === cardIndex && <div className="drop-line" />}
                   <article
-                    className="card card-clickable"
+                    className={cardMenu?.taskId === t.taskId ? 'card card-clickable card-menu-open' : 'card card-clickable'}
                     title={t.file}
                     draggable
                     onDragStart={(e) => e.dataTransfer.setData('text/plain', String(t.taskId))}
@@ -510,7 +534,11 @@ export default function App() {
                       const idx = e.clientY < r.top + r.height / 2 ? cardIndex : cardIndex + 1
                       setDropPos((cur) => (cur?.col === key && cur.index === idx ? cur : { col: key, index: idx }))
                     }}
-                    onClick={() => setSelected(t.taskId)}
+                    onClick={() => setSelected({ taskId: t.taskId, edit: false })}
+                    onContextMenu={(e) => {
+                      e.preventDefault()
+                      setCardMenu({ taskId: t.taskId, x: e.clientX, y: e.clientY })
+                    }}
                   >
                     <div className="card-head">
                       <span className="card-id">
@@ -557,8 +585,32 @@ export default function App() {
           )
         })}
       </main>
+      {cardMenu && cardMenuTask && (
+        <CardMenu
+          x={cardMenu.x}
+          y={cardMenu.y}
+          label={`${cardMenuTask.project}-${cardMenuTask.taskId} の操作`}
+          items={cardMenuItems(cardMenuTask)}
+          onClose={closeCardMenu}
+        />
+      )}
+      {deleting && (
+        <DeleteTaskModal
+          task={deleting}
+          onClose={() => setDeleting(null)}
+          onDeleted={() => {
+            setDeleting(null)
+            loadTasks() // 削除したタスクはスキャン対象外になるのでボードから消える
+          }}
+        />
+      )}
       {selected != null && (
-        <TaskModal taskId={selected} onClose={() => setSelected(null)} onUpdated={loadTasks} />
+        <TaskModal
+          taskId={selected.taskId}
+          initialMode={selected.edit ? 'edit' : 'view'}
+          onClose={() => setSelected(null)}
+          onUpdated={loadTasks}
+        />
       )}
       {creating && (
         <NewTaskModal
@@ -568,7 +620,7 @@ export default function App() {
             setCreating(false)
             loadTasks()
             loadProjects() // 未登録プロジェクトで起票された場合に備えて読み直す
-            setSelected(taskId)
+            setSelected({ taskId, edit: false })
           }}
         />
       )}
@@ -588,7 +640,7 @@ export default function App() {
           taskIds={tasks.map((t) => t.taskId)}
           onOpen={(taskId) => {
             setOpenByNo(false)
-            setSelected(taskId)
+            setSelected({ taskId, edit: false })
           }}
           onClose={() => setOpenByNo(false)}
         />
