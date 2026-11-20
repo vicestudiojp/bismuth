@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Bismuth の起動コマンド（npx bismuth-tasks）。
-//   bismuth-tasks [--port <番号>] [--vault <パス>] [--no-open]   サーバを起動してブラウザで開く
+//   bismuth-tasks [--port <番号>] [--host <アドレス>] [--vault <パス>] [--no-open]   サーバを起動してブラウザで開く
 //   bismuth-tasks cli [CLI の引数...]                             vault を直接読み書きする CLI
 // 実体はビルド済みの dist/server。初回起動時（vault の場所が未設定）は端末で場所を尋ねて保存する。
 import fs from 'node:fs'
@@ -20,11 +20,13 @@ const HELP = `Bismuth ${version} — Obsidian の vault をデータベースと
   bismuth-tasks cli [引数...]      CLI（一覧・起票・完了・コメント）。詳しくは bismuth-tasks cli --help
 
 オプション:
-  --port <番号>    待ち受けるポート（既定 8383）
-  --vault <パス>   今回だけ使う vault の場所（設定は書き換えない）
-  --no-open        ブラウザを開かない
-  -v, --version    バージョンを表示
-  -h, --help       このヘルプを表示
+  --port <番号>      待ち受けるポート（既定 8383）
+  --host <アドレス>  待ち受けるアドレス（既定 127.0.0.1＝このマシンだけ）。0.0.0.0 で同じ LAN の
+                     他の端末からも開ける。認証は無いので、信頼できるネットワークでだけ使う
+  --vault <パス>     今回だけ使う vault の場所（設定は書き換えない）
+  --no-open          ブラウザを開かない
+  -v, --version      バージョンを表示
+  -h, --help         このヘルプを表示
 
 vault の場所は ~/.config/bismuth/config.json の root に保存されます（初回起動時に尋ねます）。`
 
@@ -72,7 +74,7 @@ async function setupVault(settings) {
 }
 
 function parseServerArgs(args) {
-  const opts = { port: null, vault: null, open: true }
+  const opts = { port: null, host: null, vault: null, open: true }
   for (let i = 0; i < args.length; i++) {
     const a = args[i]
     if (a === '-h' || a === '--help') {
@@ -83,7 +85,7 @@ function parseServerArgs(args) {
       process.exit(0)
     } else if (a === '--no-open') {
       opts.open = false
-    } else if (a === '--port' || a === '--vault') {
+    } else if (a === '--port' || a === '--host' || a === '--vault') {
       const v = args[++i]
       if (!v) fail(`${a} には値が必要です`)
       opts[a.slice(2)] = v
@@ -105,6 +107,7 @@ if (command === 'cli') {
   const opts = parseServerArgs(process.argv.slice(2))
   if (opts.vault) process.env.BISMUTH_VAULT = path.resolve(expandHome(opts.vault))
   if (opts.port) process.env.BISMUTH_PORT = opts.port
+  if (opts.host) process.env.BISMUTH_HOST = opts.host
   if (opts.open && !process.env.BISMUTH_OPEN) process.env.BISMUTH_OPEN = '1'
   const settings = await importServer('settings.js')
   if (!settings.hasConfiguredRoot()) await setupVault(settings)

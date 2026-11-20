@@ -5,6 +5,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { imageType, locateDoc, readDoc, type DocQuery } from './docs.js'
+import { isLoopback, lanUrls, localUrl, resolveHost } from './network.js'
 import { addProject, deleteProject, listProjects, updateProject, type ProjectInput } from './projects.js'
 import { previewSync, runSync, todoistEnabled, TODOIST_DISABLED_MESSAGE } from './todoist.js'
 import { applyLayout, DEFAULTS, resolveSettings, saveSettings, userConfigFile, type Settings } from './settings.js'
@@ -29,6 +30,8 @@ import {
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 // ポートは Bi（ビスマス）の原子番号 83 から
 const PORT = Number(process.env.BISMUTH_PORT ?? 8383)
+// 待ち受けアドレス。既定は 127.0.0.1（このマシンだけ）。0.0.0.0 で同じ LAN の他の端末からも開ける（認証は無い）
+const HOST = resolveHost()
 
 // バージョンはパッケージの package.json から読む（開発時は server/src、配布時は dist/server から見て2つ上）
 const VERSION = (() => {
@@ -267,10 +270,13 @@ app.get('/api/docs/raw', async (req, reply) => {
 if (WEB_ROOT) app.register(fastifyStatic, { root: WEB_ROOT })
 
 app
-  .listen({ port: PORT, host: '127.0.0.1' })
+  .listen({ port: PORT, host: HOST })
   .then(async () => {
-    const url = `http://localhost:${PORT}`
-    console.log(`Bismuth ${VERSION}: ${url}`)
+    console.log(`Bismuth ${VERSION}: ${localUrl(HOST, PORT)}`)
+    if (!isLoopback(HOST)) {
+      console.log(`LAN: ${lanUrls(HOST, PORT).join('  ') || '（LAN 側のアドレスが見つかりません）'}`)
+      console.log('（認証はありません。同じネットワークの端末から vault の閲覧・編集・設定の変更ができます）')
+    }
     if (!WEB_ROOT) console.log('（画面のビルドが見つかりません。開発時は npm run dev:web を使ってください）')
     console.log(`vault: ${vault}`)
     // 採番カウンター（config.json の nextTaskId）。無ければ vault から作り直す＝いつでも捨てられる導出値
@@ -284,12 +290,17 @@ app
     )
   })
   .then(() => {
-    if (process.env.BISMUTH_OPEN === '1' && WEB_ROOT) openBrowser(`http://localhost:${PORT}`)
+    if (process.env.BISMUTH_OPEN === '1' && WEB_ROOT) openBrowser(localUrl(HOST, PORT))
   })
   .catch((err) => {
-    if ((err as NodeJS.ErrnoException).code === 'EADDRINUSE') {
+    const code = (err as NodeJS.ErrnoException).code
+    if (code === 'EADDRINUSE') {
       console.error(
         `ポート ${PORT} は使用中です。Bismuth がすでに起動していないか確認するか、--port で別のポートを指定してください`,
+      )
+    } else if (code === 'EADDRNOTAVAIL' || code === 'ENOTFOUND') {
+      console.error(
+        `アドレス ${HOST} では待ち受けられません。このマシンのアドレスか、0.0.0.0（すべてのアドレス）を --host に指定してください`,
       )
     } else {
       console.error(err)
